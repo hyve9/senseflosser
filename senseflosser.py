@@ -16,3 +16,13 @@ def degenerate(model):
             layer.set_weights(new_weights)
 
     return model
+
+
+# more ideas
+
+# something that tries to mimic how vinyl or tape might deteriorate
+# slowed/reverbed (but how to translate that into latent space?)
+
+# FWIW, I've been told that LTSM layers are quite sensitive to even small changes
+# so the above function might be overkill
+# We may want to start really small, like one or two values at a time
