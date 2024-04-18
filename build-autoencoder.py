@@ -18,6 +18,10 @@ EPOCHS = 50
 BATCH_SIZE = 10
 UNITS = 128
 
+# Model params
+timesteps = SAMPLE_RATE * DURATION
+input_dim = N_FEATURES
+
 def load_data(data_dir, sample_rate, duration):
     audio_data = []
     for root, dirs, files in os.walk(data_dir):
@@ -72,19 +76,14 @@ if __name__ == '__main__':
     logging.basicConfig(stream=sys.stderr, level=levels[loglevel], format='%(asctime)s - %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     data_dir = Path(args.data_dir)
 
+    # Load waveforms
+    audio_data = load_data(data_dir, SAMPLE_RATE)
 
-# Load waveforms
-audio_data = load_data(data_dir, SAMPLE_RATE )
+    # Build autoencoder
+    autoencoder = build_model(timesteps, input_dim)
 
-# Model params
-timesteps = SAMPLE_RATE * DURATION
-input_dim = N_FEATURES
+    # Train the model
+    autoencoder.fit(audio_data, audio_data, epochs=EPOCHS, batch_size=BATCH_SIZE, shuffle=True)
 
-# Build autoencoder
-autoencoder = build_model(timesteps, input_dim)
-
-# Train the model
-autoencoder.fit(audio_data, audio_data, epochs=EPOCHS, batch_size=BATCH_SIZE, shuffle=True)
-
-# Save model
-autoencoder.save('models/audio_autoencoder.h5')
+    # Save model
+    autoencoder.save('models/audio_autoencoder.h5')
