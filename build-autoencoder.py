@@ -77,7 +77,7 @@ if __name__ == '__main__':
     data_dir = Path(args.data_dir)
 
     # Load waveforms
-    audio_data = load_data(data_dir, SAMPLE_RATE)
+    audio_data = load_data(data_dir, SAMPLE_RATE, DURATION)
 
     # Build autoencoder
     autoencoder = build_model(timesteps, input_dim)
