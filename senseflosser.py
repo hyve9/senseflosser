@@ -2,14 +2,14 @@ import numpy as np
 from tensorflow import keras
 import logging
 
-def degenerate_ltsm(layer):
+def degenerate_ltsm(layer, magnitude):
     # Example: Manipulating LSTM layer weights
     weights = layer.get_weights()
     new_weights = []
     for weight_matrix in weights:
         # Introduce random noise or zero out weights
         shape = weight_matrix.shape
-        noise = np.random.normal(loc=0.0, scale=0.1, size=shape)
+        noise = np.random.normal(loc=0.0, scale=magnitude, size=shape)
         new_weight_matrix = weight_matrix * (1 + noise)
         new_weights.append(new_weight_matrix)
     layer.set_weights(new_weights)
@@ -25,13 +25,13 @@ def degenerate_dense(layer):
         pass
     return layer
 
-def degenerate_model(model):
+def degenerate_model(model, magnitude=0.1):
     if 'LSTM' not in model.summary():
         logging.warn('Model does not contain any LSTM layers; model will remain unmodified')
         return model
     for i in range(len(model.layers)):
         if isinstance(model.layers[i], keras.layers.LSTM):
-            model.layers[i] = degenerate_ltsm(model.layers[i])
+            model.layers[i] = degenerate_ltsm(model.layers[i], magnitude)
         elif isinstance(model.layers[i], keras.layers.Dense):
             model.layers[i] = degenerate_dense(model.layers[i])
         else:
