@@ -21,13 +21,8 @@ def degenerate_dense(layer):
     weights = layer.get_weights()
     new_weights = []
     for weight_matrix in weights:
-        # Introduce random noise or zero out weights
-        shape = weight_matrix.shape
-        noise = np.random.normal(loc=0.0, scale=0.1, size=shape)
-        new_weight_matrix = weight_matrix * (1 + noise)
-        new_weights.append(new_weight_matrix)
-    layer.set_weights(new_weights)
-
+        # do something here
+        pass
     return layer
 
 def degenerate_model(model):
@@ -38,8 +33,7 @@ def degenerate_model(model):
         if isinstance(model.layers[i], keras.layers.LSTM):
             model.layers[i] = degenerate_ltsm(model.layers[i])
         elif isinstance(model.layers[i], keras.layers.Dense):
-            # do something here
-            pass
+            model.layers[i] = degenerate_dense(model.layers[i])
         else:
             pass
     return model
