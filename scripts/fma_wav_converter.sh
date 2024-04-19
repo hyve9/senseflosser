@@ -11,7 +11,7 @@ data_dir=$1
 
 for dir in $(ls -d $data_dir*); do
        for file in $(ls $dir); do
-                ffmpeg -y -i "$dir/$file" $dir/$(basename "$file" .mp3).wav;
+                ffmpeg -y -i "$dir/$file" $dir/$(basename "$file" .mp3).wav || true;
                 rm -f $dir/$file;
         done
 done
