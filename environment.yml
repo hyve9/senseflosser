@@ -188,4 +188,3 @@ dependencies:
       - webencodings==0.5.1
       - websocket-client==1.7.0
       - zipp==3.18.0
-prefix: /home/xansec/.conda/envs/senseflosser

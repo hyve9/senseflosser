@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--data_dir', type=str, default='data', help='Directory containing the audio files')
+    parser.add_argument('--data-dir', type=str, default='data', help='Directory containing the audio files')
     parser.add_argument('--log', type=str, default='warn', help='Logging level (choose from: critical, error, warn, info, debug)')
 
     args = parser.parse_args()
