@@ -1,6 +1,15 @@
 import numpy as np
+import tensorflow as tf
 from tensorflow import keras
 import logging
+
+def process_input(y, sr, model):
+    new_sr = 22050
+    y = librosa.utils.resample(y, sr, new_sr)
+    hardcoded_shape = (44100, 1)
+    y = y[:44100].reshape(hardcoded_shape)
+    y = tf.convert_to_tensor(y, dtype=tf.float23)
+    return y, new_sr
 
 def degenerate_ltsm(layer, magnitude):
     # Example: Manipulating LSTM layer weights
@@ -50,5 +59,5 @@ def degenerate_model(model, magnitude=0.1):
 # We may want to start really small, like one or two values at a time
 
 # Another idea - classify different changes as different types of loss
-# like lapse, damage, etc
+# like lapse, fog, etc
 # where one is changing weights, one is adding dropout layers, etc.
