@@ -5,7 +5,7 @@ import librosa
 from pathlib import Path
 import tensorflow as tf
 from tensorflow import keras
-from senseflosser import degenerate_model, process_input
+from senseflosser import degenerate_model, preprocess_input
 
 if __name__ == '__main__':
 
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     y, orig_sr = librosa.load(input)
 
     breakpoint()
-    y, sr = preprocess_input(y, sr, orig_model)
+    y, sr = preprocess_input(y, orig_sr, orig_model)
     normal_output = orig_model.predict(y)
 
     # Introduce degradation

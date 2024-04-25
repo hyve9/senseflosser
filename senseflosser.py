@@ -2,14 +2,19 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 import logging
+from build_autoencoder import SAMPLE_RATE
 
-def process_input(y, sr, model):
-    new_sr = 22050
-    y = librosa.utils.resample(y, sr, new_sr)
-    hardcoded_shape = (44100, 1)
-    y = y[:44100].reshape(hardcoded_shape)
+def preprocess_input(y, sr, model):
+    y = librosa.utils.resample(y, sr, SAMPLE_RATE)
+    shape = model.input.shape
+    new_len = shape[1]
+    if len(y) < new_len:
+        y = np.pad(y, (0, new_len - len(y)))
+    elif len(y) > new_len:
+        y = y[:new_len]
+    y = y.reshape(shape)
     y = tf.convert_to_tensor(y, dtype=tf.float23)
-    return y, new_sr
+    return y, SAMPLE_RATE
 
 def degenerate_ltsm(layer, magnitude):
     # Example: Manipulating LSTM layer weights
