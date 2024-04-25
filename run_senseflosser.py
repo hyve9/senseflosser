@@ -1,11 +1,14 @@
 import sys
+import os
 import argparse
 import logging
 import librosa
+from scipy.io import wavfile
 from pathlib import Path
+import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from senseflosser import degenerate_model, preprocess_input
+from senseflosser import floss_model, preprocess_input
 
 if __name__ == '__main__':
 
@@ -37,23 +40,25 @@ if __name__ == '__main__':
     # Obtain normal output
     y, orig_sr = librosa.load(input)
 
-    breakpoint()
-    y, sr = preprocess_input(y, orig_sr, orig_model)
-    normal_output = orig_model.predict(y)
+    y_proc, sr = preprocess_input(y, orig_sr, orig_model)
+    normal_output = orig_model.predict(y_proc)
+    normal_output = np.squeeze(normal_output, axis=(0,2))
 
     # Introduce degradation
-    degraded_model = degenerate_model(orig_model, magnitude)
-    degraded_output = degraded_model.predict(y)
+    # flossed_model = floss_model(orig_model, magnitude)
+    # flossed_output = flossed_model.predict(y)
 
     # Write waveforms
+    work_folder = Path('./output')
+    os.makedirs(work_folder, exist_ok=True)
     output_file_prefix = input.stem
     if orig_sr != sr:
         y = librosa.resample(y, orig_sr=sr, target_sr=orig_sr)
-    librosa.output.write_wav(f'{output_file_prefix}_normal.wav', normal_output, sr)
-    librosa.output.write_wav(f'{output_file_prefix}_degraded.wav', degraded_output, sr)
+    wavfile.write(work_folder.joinpath(f'{output_file_prefix}_normal.wav'), orig_sr, normal_output)
+    #wavfile.write(work_folder.joinpath(f'{output_file_prefix}_flossed.wav'), orig_sr, flossed_output)
 
-    # Save degraded model
-    output_model_prefix = model_file.stem
-    degraded_model.save(f'{output_model_prefix}_degraded.h5')
+    # Save flossed model
+    # output_model_prefix = model_file.stem
+    # flossed_model.save(f'{output_model_prefix}_flossed.h5')
 
     

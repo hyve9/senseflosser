@@ -16,9 +16,11 @@ def preprocess_input(y, sr, model):
         y = y[:new_len]
     y = y.reshape(shape[1:])
     y = tf.convert_to_tensor(y)
+    # Add batch dimension
+    y = tf.expand_dims(y, axis=0)
     return y, SAMPLE_RATE
 
-def degenerate_ltsm(layer, magnitude):
+def floss_ltsm(layer, magnitude):
     # Example: Manipulating LSTM layer weights
     weights = layer.get_weights()
     new_weights = []
@@ -32,7 +34,7 @@ def degenerate_ltsm(layer, magnitude):
 
     return layer
 
-def degenerate_dense(layer):
+def floss_dense(layer):
     # Example: Manipulating Dense layer weights
     weights = layer.get_weights()
     new_weights = []
@@ -41,15 +43,15 @@ def degenerate_dense(layer):
         pass
     return layer
 
-def degenerate_model(model, magnitude=0.1):
+def floss_model(model, magnitude=0.1):
     if 'LSTM' not in model.summary():
         logging.warn('Model does not contain any LSTM layers; model will remain unmodified')
         return model
     for i in range(len(model.layers)):
         if isinstance(model.layers[i], keras.layers.LSTM):
-            model.layers[i] = degenerate_ltsm(model.layers[i], magnitude)
+            model.layers[i] = floss_ltsm(model.layers[i], magnitude)
         elif isinstance(model.layers[i], keras.layers.Dense):
-            model.layers[i] = degenerate_dense(model.layers[i])
+            model.layers[i] = floss_dense(model.layers[i])
         else:
             pass
     return model
