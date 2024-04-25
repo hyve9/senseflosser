@@ -48,3 +48,7 @@ def degenerate_model(model, magnitude=0.1):
 # FWIW, I've been told that LTSM layers are quite sensitive to even small changes
 # so the above function might be overkill
 # We may want to start really small, like one or two values at a time
+
+# Another idea - classify different changes as different types of loss
+# like lapse, damage, etc
+# where one is changing weights, one is adding dropout layers, etc.
