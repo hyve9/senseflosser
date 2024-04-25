@@ -6,15 +6,16 @@ import librosa
 from build_autoencoder import SAMPLE_RATE
 
 def preprocess_input(y, sr, model):
-    y = librosa.resample(y, orig_sr=sr, target_sr=SAMPLE_RATE)
+    if sr != SAMPLE_RATE:
+        y = librosa.resample(y, orig_sr=sr, target_sr=SAMPLE_RATE)
     shape = model.input.shape
     new_len = shape[1]
     if len(y) < new_len:
         y = np.pad(y, (0, new_len - len(y)))
     elif len(y) > new_len:
         y = y[:new_len]
-    y = y.reshape(shape)
-    y = tf.convert_to_tensor(y, dtype=tf.float23)
+    y = y.reshape(shape[1:])
+    y = tf.convert_to_tensor(y)
     return y, SAMPLE_RATE
 
 def degenerate_ltsm(layer, magnitude):
