@@ -15,9 +15,6 @@ from keras.optimizers import Adam
 # Constants
 # We have preprocessed the data to only be 22.1kHz
 SAMPLE_RATE = 22050
-# Default 30 seconds, can overwrite
-# Don't recommend using 30 seconds anyways, you will get a bunch of OOM
-DURATION = 30
 N_FEATURES = 1
 EPOCHS = 20
 BATCH_SIZE = 8
@@ -25,25 +22,29 @@ SHUFFLE_SIZE = 100
 UNITS = 128
 VAL_RATIO = 0.3
 
-# Model params
-timesteps = SAMPLE_RATE * DURATION
-input_dim = N_FEATURES
-
-def preprocess(audio):
+def preprocess(audio, duration, sample_rate):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
     # For some reason Functional.call() is complaining about this
     audio = tf.squeeze(audio, axis=-1)  # Remove unnecessary dimensions
     audio = tf.expand_dims(audio, axis=-1) # last dim was NAN, expand it to match the shape 
-    # Check for nans?
+    # Check for nans
     audio = tf.where(tf.math.is_nan(audio), tf.zeros_like(audio), audio)
-    # Check for nans after process
+    # Check for nans again
     nan_mask = tf.math.is_nan(audio)
     if tf.reduce_any(tf.math.is_nan(audio)):
         audio = tf.where(nan_mask, tf.zeros_like(audio), audio)
         if tf.reduce_any(tf.math.is_nan(audio)):
             logging.error('NaNs remain after attempting to replace them.')
-            logging.warning('Replacing audio with 0s.')
-            audio = tf.zeros_like(audio)
+            #logging.warning('Replacing audio with 0s.')
+            #audio = tf.zeros_like(audio)
+    # Check for short audio
+    target_length = duration * sample_rate
+    actual_length = audio.shape[1]
+    if actual_length < target_length:
+        logging.warning('Padding audio with 0s.')
+        pad_length = target_length - actual_length
+        paddings = tf.constant([[0, 0], [0, pad_length], [0, 0]])
+        audio = tf.pad(audio, paddings, "CONSTANT")
     return (audio, audio)
 
 def load_data(data_dir, sample_rate, duration, percentage=0.6):
@@ -61,13 +62,13 @@ def load_data(data_dir, sample_rate, duration, percentage=0.6):
         subset=None)
 
     dataset_size = full_dataset.cardinality().numpy()
-    use_size = int(dataset_size * percentage)
+    use_size = max(int(dataset_size * percentage), 1)
 
     # Use only a percentage of the dataset; full dataset keeps blowing up/exceeding memory
     full_dataset = full_dataset.take(use_size)
 
     # Preprocess data
-    full_dataset = full_dataset.map(preprocess, num_parallel_calls=tf.data.AUTOTUNE)
+    full_dataset = full_dataset.map(lambda x: preprocess(x, sample_rate, duration), num_parallel_calls=tf.data.AUTOTUNE)
 
     # Split into training and validation
     val_size = int(VAL_RATIO * use_size)
@@ -106,12 +107,12 @@ def build_model(timesteps, input_dim):
     return autoencoder
 
 # Below debugging functions courtesy of Liqian :)
-def test_preprocess_function():
+def test_preprocess_function(sample_rate, duration):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
     # a test tensor with NaN values
-    test_input = tf.constant([[1.0], [float('nan')], [3.0]])
+    test_input = tf.constant([[1.0], [float('nan')], [3.0]], shape=[1, 3, 1], dtype=tf.float32)
     # preprocess
-    processed_input = preprocess(test_input)
+    processed_input = preprocess(test_input, sample_rate, duration)
     # Check if any NaNs remain
     contains_nan = tf.reduce_any(tf.math.is_nan(processed_input[0]))
     logging.debug(f'Processed input: {processed_input[0].numpy()}')
@@ -135,7 +136,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--data-dir', type=str, required=True, help='Directory containing the audio files')
-    parser.add_argument('--duration', type=int, help='Duration of audio (in seconds) to use for training')
+    parser.add_argument('--duration', type=int, default=30, help='Duration of audio (in seconds) to use for training')
+    parser.add_argument('--percentage', type=float, help='Percentage of dataset to use')
     parser.add_argument('--log', type=str, default='warn', help='Logging level (choose from: critical, error, warn, info, debug)')
 
     args = parser.parse_args()
@@ -153,24 +155,27 @@ if __name__ == '__main__':
     loglevel = args.log.lower() if (args.log.lower() in levels) else 'warn'
     logging.basicConfig(stream=sys.stderr, level=levels[loglevel], format='%(asctime)s - %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     data_dir = Path(args.data_dir)
-    DURATION = args.duration
+    duration = args.duration
+    percentage = args.percentage if args.percentage else 0.6
+    logging.debug(f'Duration set to {duration}')
 
+
+    # Test the preprocess function
+    if loglevel == 'debug':
+        test_preprocess_function(SAMPLE_RATE, duration)
+    
     # Load audio and split into datasets
     # Not using test atm
-    train, val, _ = load_data(data_dir, SAMPLE_RATE, DURATION)
+    train, val, _ = load_data(data_dir, SAMPLE_RATE, duration, percentage)
     
     # look at data to make sure we aren't crazy
     for audio in train.take(5):
         logging.debug(audio[0].shape)
 
     # Build the autoencoder
-    autoencoder = build_model(timesteps, input_dim)
-
-    # test the model with a random tensor
-    test_audio = tf.random.normal([64, 44100, 1])
-    
-    # Test the preprocess function
-    test_preprocess_function()
+    # Model params
+    timesteps = SAMPLE_RATE * duration
+    autoencoder = build_model(timesteps, N_FEATURES)
 
     # look at the model
     logging.debug(autoencoder.summary())
@@ -179,4 +184,4 @@ if __name__ == '__main__':
     history = autoencoder.fit(x=train, epochs=EPOCHS, batch_size=BATCH_SIZE, validation_data=val)
 
     # Save model
-    autoencoder.save(f'models/{DURATION}s_audio_autoencoder.h5')
+    autoencoder.save(f'models/{duration}s_audio_autoencoder.h5')
