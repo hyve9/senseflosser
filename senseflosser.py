@@ -2,10 +2,11 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 import logging
+import librosa
 from build_autoencoder import SAMPLE_RATE
 
 def preprocess_input(y, sr, model):
-    y = librosa.utils.resample(y, sr, SAMPLE_RATE)
+    y = librosa.resample(y, orig_sr=sr, target_sr=SAMPLE_RATE)
     shape = model.input.shape
     new_len = shape[1]
     if len(y) < new_len:

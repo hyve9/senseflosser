@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
     # Write waveforms
     output_file_prefix = input.stem
-    y = librosa.utils.resample(y, sr, orig_sr)
+    y = librosa.resample(y, orig_sr=sr, target_sr=orig_sr)
     librosa.output.write_wav(f'{output_file_prefix}_normal.wav', normal_output, sr)
     librosa.output.write_wav(f'{output_file_prefix}_degraded.wav', degraded_output, sr)
 
