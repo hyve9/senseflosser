@@ -4,6 +4,9 @@ from tensorflow import keras
 import logging
 import librosa
 from build_autoencoder import SAMPLE_RATE
+from keras.layers import Dropout, LSTM
+from keras.models import Model
+
 
 def window_audio(y, window_size):
     # Split audio into windows
@@ -33,40 +36,56 @@ def preprocess_input(y, sr, model):
         y_windows.append(window)
     return y_windows, SAMPLE_RATE
 
-def floss_ltsm(layer, magnitude):
-    # Example: Manipulating LSTM layer weights
-    weights = layer.get_weights()
-    new_weights = []
-    for weight_matrix in weights:
-        # Introduce random noise or zero out weights
-        shape = weight_matrix.shape
-        noise = np.random.normal(loc=0.0, scale=magnitude, size=shape)
-        new_weight_matrix = weight_matrix * (1 + noise)
-        new_weights.append(new_weight_matrix)
-    layer.set_weights(new_weights)
+def fog(model, magnitude):
+    for i, layer in enumerate(model.layers):
+        # Only run fog on LSTM layers; may do others later
+        if isinstance(layer, LSTM):
+            if i % max(1, int(np.round(magnitude * 10))) == 0:
+                weights = layer.get_weights()
+                new_weights = []
+                for weight_matrix in weights:
+                    # Introduce random noise or zero out weights
+                    shape = weight_matrix.shape
+                    noise = np.random.normal(loc=0.0, scale=magnitude, size=shape)
+                    new_weight_matrix = weight_matrix + noise
+                    new_weights.append(new_weight_matrix)
+                model.layers[i].set_weights(new_weights)
+    return model
 
-    return layer
+def lapse(model, magnitude):
+    new_model_layers = []
+    input_layer = model.input
+    x = input_layer
+    
+    for i, layer in enumerate(model.layers):
+        # Clone the layer from the original model configuration
+        cloned_layer = layer.__class__.from_config(layer.get_config())
+        x = cloned_layer(x)
+        cloned_layer.set_weights(layer.get_weights())
+        new_model_layers.append(cloned_layer)
+        
+        if isinstance(layer, LSTM):
+            # Add dropout layer conditionally based on magnitude
+            if i % max(1, int(np.round(magnitude * 10))) == 0:
+                dropout_layer = Dropout(magnitude)
+                x = dropout_layer(x)
+                new_model_layers.append(dropout_layer)
+                
+    # Create new model based on the functional API
+    new_model = Model(inputs=input_layer, outputs=x)
+    new_model.compile(optimizer=model.optimizer, loss=model.loss, metrics=model.metrics)
+    return new_model
 
-def floss_dense(layer):
-    # Example: Manipulating Dense layer weights
-    weights = layer.get_weights()
-    new_weights = []
-    for weight_matrix in weights:
-        # do something here
-        pass
-    return layer
-
-def floss_model(model, magnitude=0.1):
+def floss_model(model, magnitude=0.1, action='fog'):
     if 'LSTM' not in model.summary():
         logging.warn('Model does not contain any LSTM layers; model will remain unmodified')
         return model
-    for i in range(len(model.layers)):
-        if isinstance(model.layers[i], keras.layers.LSTM):
-            model.layers[i] = floss_ltsm(model.layers[i], magnitude)
-        elif isinstance(model.layers[i], keras.layers.Dense):
-            model.layers[i] = floss_dense(model.layers[i])
-        else:
-            pass
+    if action == 'fog':
+        model = fog(model, magnitude)
+    elif action == 'lapse':
+        model = lapse(model, magnitude)
+    else:
+        logging.warn('Invalid action; model will remain unmodified')
     return model
 
 

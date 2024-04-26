@@ -45,10 +45,11 @@ if __name__ == '__main__':
     for window in y_proc:
         output = orig_model.predict(window)
         output = np.squeeze(output, axis=(0,2))
+        # normalize output
+        output = 2 * (output - np.min(output)) / (np.max(output) - np.min(output)) - 1
         output_windows.append(output)
     normal_output = np.concatenate(output_windows)
-    breakpoint()
-
+    
     # Introduce degradation
     # flossed_model = floss_model(orig_model, magnitude)
     # flossed_output = flossed_model.predict(y)
