@@ -45,7 +45,6 @@ def preprocess(audio, duration, sample_rate):
         paddings = tf.constant([[0, 0], [0, pad_length], [0, 0]])
         audio = tf.pad(audio, paddings, "CONSTANT")
     # Normalize audio between -1 and 1
-    audio = tf.cast(audio, tf.float32)
     max_val = tf.reduce_max(tf.abs(audio))
     # Avoid division by zero
     if max_val != 0:
@@ -115,7 +114,7 @@ def build_model(timesteps, input_dim):
 def test_preprocess_function(sample_rate, duration):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
     # a test tensor with NaN values
-    test_input = tf.constant([[1.0], [float('nan')], [3.0]], shape=[1, 3, 1], dtype=tf.float32)
+    test_input = tf.constant([[1.0], [float('nan')], [-3.0]], shape=[1, 3, 1], dtype=tf.float32)
     # preprocess
     processed_input = preprocess(test_input, sample_rate, duration)
     # Check if any NaNs remain
@@ -174,8 +173,9 @@ if __name__ == '__main__':
     train, val, _ = load_data(data_dir, SAMPLE_RATE, duration, percentage)
     
     # look at data to make sure we aren't crazy
-    for audio in train.take(5):
-        logging.debug(audio[0].shape)
+    if loglevel == 'debug':
+        for audio in train.take(5):
+            logging.debug(audio[0].shape)
 
     # Build the autoencoder
     # Model params
