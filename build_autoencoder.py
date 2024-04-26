@@ -7,20 +7,20 @@ import numpy as np
 import tensorflow as tf
 import keras
 from pathlib import Path
-from keras.callbacks import EarlyStopping
+from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from keras.layers import Layer
-from keras.layers import Input, LSTM, RepeatVector, Dense
+from keras.layers import Input, LSTM, RepeatVector
 from keras.models import Model
 from keras.optimizers import Adam
 
 # Constants
-# We have preprocessed the data to only be 22.1kHz
+# We have preprocessed the data to only be 22kHz
 SAMPLE_RATE = 22050
 N_FEATURES = 1
-EPOCHS = 20
+EPOCHS = 40
 BATCH_SIZE = 8
 SHUFFLE_SIZE = 100
-UNITS = 128
+UNITS = 1024
 VAL_RATIO = 0.3
 
 def preprocess(audio, duration, sample_rate):
@@ -53,7 +53,7 @@ def preprocess(audio, duration, sample_rate):
 
 def load_data(data_dir, sample_rate, duration, percentage=0.6):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
-    logging.warning('This function expects all audio to be preprocessed at 22.1 kHz.') 
+    logging.warning('This function expects all audio to be preprocessed at 22 kHz.') 
     logging.warning('If this is not the case, you will likely get strange results.')
     # More efficient than using librosa and iterating over directories
     full_dataset = tf.keras.utils.audio_dataset_from_directory(
@@ -99,12 +99,12 @@ def build_model(timesteps, input_dim):
     input_layer = Input(shape=(timesteps, input_dim))
     # Long Short-Term Memory (LSTM), a type of recurrent neural network (https://keras.io/api/layers/recurrent_layers/lstm/)
     # Using 128 units in the LSTM layer is (apparently) a common choice for audio data
-    encoder = LSTM(UNITS)(input_layer)
+    encoder = LSTM(UNITS, activation='tanh')(input_layer)
     # Repeat the input timesteps times
     repeated = RepeatVector(timesteps)(encoder)
     # return_sequences=True means that the LSTM layer will return the full sequence of outputs for each input
     # This is what we want, audio in == audio out, nothing fancy
-    decoder = LSTM(input_dim, return_sequences=True)(repeated)
+    decoder = LSTM(input_dim, activation='tanh', return_sequences=True)(repeated)
 
     autoencoder = Model(inputs=input_layer, outputs=decoder)
     autoencoder.compile(optimizer=Adam(), loss='mse')
@@ -122,9 +122,9 @@ def test_preprocess_function(sample_rate, duration):
     logging.debug(f'Processed input: {processed_input[0].numpy()}')
     logging.debug(f'Contains NaN: {contains_nan.numpy()}')
 
-def check_shape(audio):
+def check_shape(audio, sample_rate, duration):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
-    assert audio.shape[1:] == (SAMPLE_RATE * DURATION, 1), f'Wrong shape: {audio.shape}'
+    assert audio.shape[1:] == (sample_rate * duration, 1), f'Wrong shape: {audio.shape}'
     return audio
 
 class CheckNan(Layer):
@@ -186,8 +186,9 @@ if __name__ == '__main__':
     logging.debug(autoencoder.summary())
 
     # Train the model
-    callback = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-    history = autoencoder.fit(x=train, epochs=EPOCHS, batch_size=BATCH_SIZE, validation_data=val, callbacks=[callback])
+    early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
+    history = autoencoder.fit(x=train, epochs=EPOCHS, batch_size=BATCH_SIZE, validation_data=val, callbacks=[early_stop, reduce_lr])
 
     # Save model
     autoencoder.save(f'models/{duration}s_audio_autoencoder.h5')
