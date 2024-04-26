@@ -5,11 +5,10 @@ import logging
 import librosa
 from build_autoencoder import SAMPLE_RATE
 
-def window_audio(y, window_size, overlap=0.5):
+def window_audio(y, window_size):
     # Split audio into windows
-    hop_length = int(window_size * overlap)
     windows = []
-    for i in range(0, len(y), hop_length):
+    for i in range(0, len(y), window_size):
         window = y[i:i+window_size]
         if len(window) < window_size:
             window = np.pad(window, (0, window_size - len(window)))

@@ -7,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 import keras
 from pathlib import Path
+from keras.callbacks import EarlyStopping
 from keras.layers import Layer
 from keras.layers import Input, LSTM, RepeatVector, Dense
 from keras.models import Model
@@ -35,8 +36,6 @@ def preprocess(audio, duration, sample_rate):
         audio = tf.where(nan_mask, tf.zeros_like(audio), audio)
         if tf.reduce_any(tf.math.is_nan(audio)):
             logging.error('NaNs remain after attempting to replace them.')
-            #logging.warning('Replacing audio with 0s.')
-            #audio = tf.zeros_like(audio)
     # Check for short audio
     target_length = duration * sample_rate
     actual_length = audio.shape[1]
@@ -45,6 +44,12 @@ def preprocess(audio, duration, sample_rate):
         pad_length = target_length - actual_length
         paddings = tf.constant([[0, 0], [0, pad_length], [0, 0]])
         audio = tf.pad(audio, paddings, "CONSTANT")
+    # Normalize audio between -1 and 1
+    audio = tf.cast(audio, tf.float32)
+    max_val = tf.reduce_max(tf.abs(audio))
+    # Avoid division by zero
+    if max_val != 0:
+        audio = audio / max_val
     return (audio, audio)
 
 def load_data(data_dir, sample_rate, duration, percentage=0.6):
@@ -103,7 +108,7 @@ def build_model(timesteps, input_dim):
     decoder = LSTM(input_dim, return_sequences=True)(repeated)
 
     autoencoder = Model(inputs=input_layer, outputs=decoder)
-    autoencoder.compile(optimizer='adam', loss='mse', run_eagerly=True)
+    autoencoder.compile(optimizer=Adam(), loss='mse')
     return autoencoder
 
 # Below debugging functions courtesy of Liqian :)
@@ -181,7 +186,8 @@ if __name__ == '__main__':
     logging.debug(autoencoder.summary())
 
     # Train the model
-    history = autoencoder.fit(x=train, epochs=EPOCHS, batch_size=BATCH_SIZE, validation_data=val)
+    callback = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+    history = autoencoder.fit(x=train, epochs=EPOCHS, batch_size=BATCH_SIZE, validation_data=val, callbacks=[callback])
 
     # Save model
     autoencoder.save(f'models/{duration}s_audio_autoencoder.h5')
