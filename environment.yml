@@ -1,4 +1,4 @@
-name: cloudspace
+name: senseflosser 
 channels:
   - defaults
 dependencies:
@@ -224,4 +224,3 @@ dependencies:
       - werkzeug==3.0.2
       - wrapt==1.16.0
       - zipp==3.18.0
-prefix: /home/zeus/miniconda3/envs/cloudspace
