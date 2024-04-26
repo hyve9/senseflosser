@@ -40,7 +40,7 @@ def fog(model, magnitude):
     for i, layer in enumerate(model.layers):
         # Only run fog on LSTM layers; may do others later
         if isinstance(layer, LSTM):
-            if i % max(1, int(np.round(magnitude * 10))) == 0:
+            if i % 1 == 0:
                 weights = layer.get_weights()
                 new_weights = []
                 for weight_matrix in weights:
@@ -65,8 +65,7 @@ def lapse(model, magnitude):
         new_model_layers.append(cloned_layer)
         
         if isinstance(layer, LSTM):
-            # Add dropout layer conditionally based on magnitude
-            if i % max(1, int(np.round(magnitude * 10))) == 0:
+            if i % 1 == 0:
                 dropout_layer = Dropout(magnitude)
                 x = dropout_layer(x)
                 new_model_layers.append(dropout_layer)
