@@ -5,20 +5,34 @@ import logging
 import librosa
 from build_autoencoder import SAMPLE_RATE
 
+def window_audio(y, window_size, overlap=0.5):
+    # Split audio into windows
+    hop_length = int(window_size * overlap)
+    windows = []
+    for i in range(0, len(y), hop_length):
+        window = y[i:i+window_size]
+        if len(window) < window_size:
+            window = np.pad(window, (0, window_size - len(window)))
+        windows.append(window)
+    return windows
+
 def preprocess_input(y, sr, model):
     if sr != SAMPLE_RATE:
         y = librosa.resample(y, orig_sr=sr, target_sr=SAMPLE_RATE)
     shape = model.input.shape
-    new_len = shape[1]
-    if len(y) < new_len:
-        y = np.pad(y, (0, new_len - len(y)))
-    elif len(y) > new_len:
-        y = y[:new_len]
-    y = y.reshape(shape[1:])
-    y = tf.convert_to_tensor(y)
-    # Add batch dimension
-    y = tf.expand_dims(y, axis=0)
-    return y, SAMPLE_RATE
+    target_len = shape[1]
+    if len(y) < target_len:
+        y = [np.pad(y, (0,target_len - len(y)))]
+    elif len(y) > target_len:
+        y = window_audio(y, target_len)
+    y_windows = []
+    for window in y:
+        window = window.reshape(shape[1:])
+        window = tf.convert_to_tensor(window)
+        # Add batch dimension
+        window = tf.expand_dims(window, axis=0)
+        y_windows.append(window)
+    return y_windows, SAMPLE_RATE
 
 def floss_ltsm(layer, magnitude):
     # Example: Manipulating LSTM layer weights
