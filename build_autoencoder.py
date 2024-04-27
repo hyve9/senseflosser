@@ -8,61 +8,96 @@ import tensorflow as tf
 import keras
 from pathlib import Path
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from keras.layers import Layer
-from keras.layers import Input, LSTM, RepeatVector
-from keras.models import Model
+from keras.layers import (Input, 
+                          Layer, 
+                          Conv2D, 
+                          Conv2DTranspose, 
+                          UpSampling2D, 
+                          BatchNormalization, 
+                          Reshape, 
+                          Cropping2D
+                            )
+from keras.models import Model, Sequential
 from keras.optimizers import Adam
 
 # Constants
+
+# Audio
 # We have preprocessed the data to only be 22kHz
-SAMPLE_RATE = 22050
-N_FEATURES = 1
-EPOCHS = 40
-BATCH_SIZE = 8
+SAMPLE_RATE= 22050
+WINDOW_LEN = 2048
+HOP_LEN = WINDOW_LEN // 2
+WTYPE = tf.signal.hann_window
+
+# Model
+EPOCHS = 25
+BATCH_SIZE = 64
 SHUFFLE_SIZE = 100
-UNITS = 1024
+
+# Dataset
 VAL_RATIO = 0.3
 
-def preprocess(audio, duration, sample_rate):
+def preprocess(audio, sample_rate, duration):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
     # For some reason Functional.call() is complaining about this
-    audio = tf.squeeze(audio, axis=-1)  # Remove unnecessary dimensions
-    audio = tf.expand_dims(audio, axis=-1) # last dim was NAN, expand it to match the shape 
+    audio = tf.reshape(audio, [-1, tf.shape(audio)[1]])
+
     # Check for nans
     audio = tf.where(tf.math.is_nan(audio), tf.zeros_like(audio), audio)
-    # Check for nans again
-    nan_mask = tf.math.is_nan(audio)
-    if tf.reduce_any(tf.math.is_nan(audio)):
-        audio = tf.where(nan_mask, tf.zeros_like(audio), audio)
-        if tf.reduce_any(tf.math.is_nan(audio)):
-            logging.error('NaNs remain after attempting to replace them.')
+
     # Check for short audio
     target_length = duration * sample_rate
-    actual_length = audio.shape[1]
-    if actual_length < target_length:
-        logging.warning('Padding audio with 0s.')
-        pad_length = target_length - actual_length
-        paddings = tf.constant([[0, 0], [0, pad_length], [0, 0]])
-        audio = tf.pad(audio, paddings, "CONSTANT")
+    pad_length = target_length - tf.shape(audio)[1]
+    if pad_length > 0:
+        extra = pad_length + tf.shape(audio)[1] % WINDOW_LEN
+        full_pad_length = pad_length + extra
+        audio = tf.pad(audio, [[0, 0], [0, full_pad_length]], "CONSTANT")
+
     # Normalize audio between -1 and 1
-    max_val = tf.reduce_max(tf.abs(audio))
-    # Avoid division by zero
-    if max_val != 0:
-        audio = audio / max_val
-    return (audio, audio)
+    max_val = tf.reduce_max(tf.abs(audio), axis=1, keepdims=True)
+    max_val = tf.maximum(max_val, 1e-5)  # Prevent division by zero
+    audio = audio / max_val
+
+    # Convert to STFT
+    S_audio = tf.signal.stft(audio, frame_length=WINDOW_LEN, frame_step=HOP_LEN, window_fn=WTYPE)
+
+    # Check for NaNs in STFT
+    reals = tf.math.real(S_audio)
+    imags = tf.math.imag(S_audio)
+    real_nans = tf.math.is_nan(reals)
+    imag_nans = tf.math.is_nan(imags)
+    has_nan = tf.logical_or(real_nans, imag_nans)
+
+    # Replace NaNs in STFT
+    if tf.reduce_any(has_nan):
+        logging.warning('NaN values detected in STFT output, and have been replaced with zeros.')
+        reals = tf.where(real_nans, tf.zeros_like(reals), reals)
+        imags = tf.where(imag_nans, tf.zeros_like(imags), imags)
+
+    # Stack reals and imags
+    S_audio = tf.stack([reals, imags], axis=-1)
+
+    # Make sure the shape matches windows, freq_bins, input_dim
+    windows = duration * sample_rate // HOP_LEN
+    freq_bins = WINDOW_LEN // 2 + 1 # should be constant, we recreate here just in case
+    if S_audio.shape[1:] != tf.TensorShape([windows, freq_bins, 2]):
+        logging.warning(f'Audio shape {S_audio.shape} does not match expected shape {[S_audio.shape[0], windows, freq_bins, 2]}')
+        S_audio = tf.reshape(S_audio, [-1, windows, freq_bins, 2])
+    return (S_audio, S_audio)
 
 def load_data(data_dir, sample_rate, duration, percentage=0.6):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
     logging.warning('This function expects all audio to be preprocessed at 22 kHz.') 
     logging.warning('If this is not the case, you will likely get strange results.')
     # More efficient than using librosa and iterating over directories
+    ideal_sequence_length = sample_rate * duration - ((sample_rate * duration) % WINDOW_LEN)
     full_dataset = tf.keras.utils.audio_dataset_from_directory(
         directory=data_dir,
         batch_size=BATCH_SIZE,
         seed=0,
         labels=None,
         label_mode=None,
-        output_sequence_length=sample_rate * duration,
+        output_sequence_length=ideal_sequence_length,
         subset=None)
 
     dataset_size = full_dataset.cardinality().numpy()
@@ -93,39 +128,62 @@ def load_data(data_dir, sample_rate, duration, percentage=0.6):
     return train, val, test
 
 
-def build_model(timesteps, input_dim):
+def build_model(windows, freq_bins, input_dim=2):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
-    # Modified from https://blog.keras.io/building-autoencoders-in-keras.html
-    input_layer = Input(shape=(timesteps, input_dim))
-    # Long Short-Term Memory (LSTM), a type of recurrent neural network (https://keras.io/api/layers/recurrent_layers/lstm/)
-    # Using 128 units in the LSTM layer is (apparently) a common choice for audio data
-    encoder = LSTM(UNITS, activation='tanh')(input_layer)
-    # Repeat the input timesteps times
-    repeated = RepeatVector(timesteps)(encoder)
-    # return_sequences=True means that the LSTM layer will return the full sequence of outputs for each input
-    # This is what we want, audio in == audio out, nothing fancy
-    decoder = LSTM(input_dim, activation='tanh', return_sequences=True)(repeated)
+    model = Sequential()
 
-    autoencoder = Model(inputs=input_layer, outputs=decoder)
-    autoencoder.compile(optimizer=Adam(), loss='mse')
-    return autoencoder
+    # Input layer
+    input_layer = Input(shape=(windows, freq_bins, input_dim))
+    model.add(input_layer)
+    
+    # Encoder
+    model.add(Conv2D(32, (3, 3), activation='relu', padding='same'))
+    model.add(BatchNormalization())
+    model.add(Conv2D(64, (3, 3), activation='relu', padding='same', strides=(2, 2)))
+    model.add(BatchNormalization())
+    model.add(Conv2D(128, (3, 3), activation='relu', padding='same', strides=(2, 2)))
+
+    # Bottleneck
+    model.add(Conv2D(256, (3, 3), activation='relu', padding='same'))
+
+    # Decoder
+    model.add(Conv2DTranspose(128, (3, 3), strides=(2, 2), activation='relu', padding='same'))
+    model.add(BatchNormalization())
+    model.add(Conv2DTranspose(64, (3, 3), strides=(2, 2), activation='relu', padding='same'))
+    model.add(BatchNormalization())
+    model.add(Conv2DTranspose(32, (3, 3), activation='relu', padding='same'))
+
+    # Output layer
+    model.add(Conv2D(input_dim, (3, 3), activation='linear', padding='same'))
+
+    # Output layer does not match input shape for some reason
+    model.add(Cropping2D(cropping=((0, 1), (0, 3)))) 
+
+    model.compile(optimizer=Adam(), loss='mse')
+    return model
 
 # Below debugging functions courtesy of Liqian :)
 def test_preprocess_function(sample_rate, duration):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
-    # a test tensor with NaN values
-    test_input = tf.constant([[1.0], [float('nan')], [-3.0]], shape=[1, 3, 1], dtype=tf.float32)
+    test_input, _ = librosa.load('data/fma_small/006/006329.wav.wav', sr=sample_rate)
+    # make sure duration is accurate
+    if len(test_input) < duration * sample_rate:
+        # pad
+        test_input = np.pad(test_input, (0, duration * sample_rate - len(test_input)))
+    elif len(test_input) > duration * sample_rate:
+        test_input = test_input[:duration * sample_rate]
+    if len(test_input) % WINDOW_LEN != 0:
+        test_input = test_input[:-(len(test_input) % WINDOW_LEN)]
+    test_input[len(test_input)//2] = float('nan')
+    test_input = tf.convert_to_tensor(test_input)
+    # Add dims to match dataset
+    test_input = tf.reshape(test_input, [1, -1, 1])
     # preprocess
     processed_input = preprocess(test_input, sample_rate, duration)
     # Check if any NaNs remain
     contains_nan = tf.reduce_any(tf.math.is_nan(processed_input[0]))
     logging.debug(f'Processed input: {processed_input[0].numpy()}')
     logging.debug(f'Contains NaN: {contains_nan.numpy()}')
-
-def check_shape(audio, sample_rate, duration):
-    logging.debug('Entering ' + sys._getframe().f_code.co_name)
-    assert audio.shape[1:] == (sample_rate * duration, 1), f'Wrong shape: {audio.shape}'
-    return audio
 
 class CheckNan(Layer):
     def __init__(self, **kwargs):
@@ -163,7 +221,6 @@ if __name__ == '__main__':
     percentage = args.percentage if args.percentage else 0.6
     logging.debug(f'Duration set to {duration}')
 
-
     # Test the preprocess function
     if loglevel == 'debug':
         test_preprocess_function(SAMPLE_RATE, duration)
@@ -174,13 +231,13 @@ if __name__ == '__main__':
     
     # look at data to make sure we aren't crazy
     if loglevel == 'debug':
-        for audio in train.take(5):
-            logging.debug(audio[0].shape)
+        pass
 
     # Build the autoencoder
     # Model params
-    timesteps = SAMPLE_RATE * duration
-    autoencoder = build_model(timesteps, N_FEATURES)
+    windows = duration * SAMPLE_RATE // HOP_LEN
+    freq_bins = WINDOW_LEN // 2 + 1
+    autoencoder = build_model(windows, freq_bins)
 
     # look at the model
     logging.debug(autoencoder.summary())
