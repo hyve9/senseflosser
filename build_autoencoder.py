@@ -31,7 +31,7 @@ WTYPE = tf.signal.hann_window
 
 # Model
 EPOCHS = 25
-BATCH_SIZE = 64
+BATCH_SIZE = 16
 SHUFFLE_SIZE = 100
 
 # Dataset
@@ -44,6 +44,10 @@ def preprocess(audio, sequence_length, windows, freq_bins):
 
     # Check for nans
     audio = tf.where(tf.math.is_nan(audio), tf.zeros_like(audio), audio)
+
+    # Convert audio to mono if it is stereo
+    if audio.shape[-1] == 2:  # Check if the last dimension (channel dimension) is 2
+        audio = tf.reduce_mean(audio, axis=-1)  # Average the two channels
 
     # Check for incorrect audio length
     offset = sequence_length - audio.shape[1]
@@ -92,7 +96,7 @@ def load_data(data_dir, sequence_length, windows, freq_bins, percentage=0.6):
     # More efficient than using librosa and iterating over directories
     full_dataset = tf.keras.utils.audio_dataset_from_directory(
         directory=data_dir,
-        batch_size=BATCH_SIZE,
+        batch_size=1,
         seed=0,
         labels=None,
         label_mode=None,
@@ -124,9 +128,9 @@ def load_data(data_dir, sequence_length, windows, freq_bins, percentage=0.6):
 
     # Cache and prefetch
     # Tensorflow says this is more efficient: (https://www.tensorflow.org/tutorials/audio/simple_audio)
-    train = train.cache().shuffle(SHUFFLE_SIZE).prefetch(tf.data.AUTOTUNE)
-    val = val.cache().prefetch(tf.data.AUTOTUNE)
-    test = test.cache().prefetch(tf.data.AUTOTUNE)
+    train = train.cache().batch(BATCH_SIZE).shuffle(SHUFFLE_SIZE).prefetch(tf.data.AUTOTUNE)
+    val = val.cache().batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+    test = test.cache().batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
     return train, val, test
 
