@@ -28,15 +28,19 @@ WTYPE = tf.signal.hann_window
 # Model
 EPOCHS = 25
 BATCH_SIZE = 16
-SHUFFLE_SIZE = 100
+SHUFFLE_SIZE = 128
 
 # Dataset
-VAL_RATIO = 0.3
+VAL_RATIO = 0.4
 
 def preprocess(audio, sequence_length, windows, freq_bins):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
 
-    # Reshape
+    # Convert to mono
+    if audio.shape[-1] == 2:
+        audio = tf.reduce_mean(audio, axis=-1)
+
+    # Remove extra dimensions
     if len(audio.shape) != 1:
         audio = tf.reshape(audio, [audio.shape[0]])
 
@@ -107,6 +111,9 @@ def load_data(data_dir, sequence_length, windows, freq_bins, percentage=0.6):
     # Sometimes audio is empty; get rid of it
     full_dataset = full_dataset.filter(lambda x: tf.size(x) > 0)
 
+    for features in full_dataset.take(1):
+        logging.debug(features.shape)
+
     # Preprocess data
     full_dataset = full_dataset.map(lambda x: preprocess(x, sequence_length, windows, freq_bins),
                                     num_parallel_calls=tf.data.AUTOTUNE)
@@ -123,9 +130,9 @@ def load_data(data_dir, sequence_length, windows, freq_bins, percentage=0.6):
 
     # Cache and prefetch
     # Tensorflow says this is more efficient: (https://www.tensorflow.org/tutorials/audio/simple_audio)
-    train = train.cache().shuffle(SHUFFLE_SIZE).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
-    val = val.cache().batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
-    test = test.cache().batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+    train = train.cache().shuffle(SHUFFLE_SIZE).batch(BATCH_SIZE, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
+    val = val.cache().batch(BATCH_SIZE, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
+    test = test.cache().batch(BATCH_SIZE, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
 
     return train, val, test
 
@@ -232,7 +239,8 @@ if __name__ == '__main__':
     
     # look at data to make sure we aren't crazy
     if loglevel == 'debug':
-        pass
+        for x in train.take(1):
+            logging.debug(f'Training data shape: {x.shape}')
 
     # Build the autoencoder
     autoencoder = build_model(windows, freq_bins)
@@ -243,7 +251,7 @@ if __name__ == '__main__':
     # Train the model
     early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
-    history = autoencoder.fit(x=train, epochs=EPOCHS, batch_size=BATCH_SIZE, validation_data=val, callbacks=[early_stop, reduce_lr])
+    history = autoencoder.fit(x=train, epochs=EPOCHS, validation_data=val, callbacks=[early_stop, reduce_lr])
 
     # Save model
     autoencoder.save(f'models/{duration}s_audio_autoencoder.h5')
