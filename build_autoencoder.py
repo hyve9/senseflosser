@@ -111,7 +111,7 @@ def load_data(data_dir, sequence_length, windows, freq_bins, percentage=0.6):
     # Sometimes audio is empty; get rid of it
     full_dataset = full_dataset.filter(lambda x: tf.size(x) > 0)
 
-    for features in full_dataset.take(1):
+    for features in full_dataset.take(10):
         logging.debug(features.shape)
 
     # Preprocess data
@@ -136,25 +136,56 @@ def load_data(data_dir, sequence_length, windows, freq_bins, percentage=0.6):
 
     return train, val, test
 
+def get_strides(windows, freq_bins, num_layers, max_stride=8):
+    logging.debug('Entering ' + sys._getframe().f_code.co_name)
+    win_strides = []
+    freq_strides = []
+    for i in range(1, num_layers + 1):
+        found_window_stride = False
+        found_freq_stride = False
+        for j in range(2, max_stride + 1):  # Really shouldn't have strides larger than 8
+            if not found_window_stride and windows % j == 0:
+                found_window_stride = True
+                win_strides.append(j)
+                windows = windows // j
+            if not found_freq_stride and freq_bins % j == 0:
+                found_freq_stride = True
+                freq_strides.append(j)
+                freq_bins = freq_bins // j
+            if found_window_stride and found_freq_stride:
+                break
+        # Check if we found a stride
+        if not found_window_stride:
+            win_strides.append(1)
+        if not found_freq_stride:
+            freq_strides.append(1)
+
+    # Transpose to get window and freq stride pairs
+    strides = list(zip(win_strides, freq_strides))
+    return strides
+    
 
 def build_model(windows, freq_bins, input_dim=2):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
+
+    strides = get_strides(windows, freq_bins, 2)
+    
     model = Sequential([
         # Encoder
         Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(windows, freq_bins, input_dim)),
         BatchNormalization(),
-        Conv2D(64, (3, 3), activation='relu', padding='same', strides=(5, 5)),
+        Conv2D(64, (3, 3), activation='relu', padding='same', strides=strides[0]),
         BatchNormalization(),
-        Conv2D(128, (3, 3), activation='relu', padding='same', strides=(3, 5)),
+        Conv2D(128, (3, 3), activation='relu', padding='same', strides=strides[1]),
         BatchNormalization(),
 
         # Bottleneck
         Conv2D(256, (3, 3), activation='relu', padding='same'),
 
         # Decoder
-        Conv2DTranspose(128, (3, 3), activation='relu', padding='same', strides=(3, 5)),
+        Conv2DTranspose(128, (3, 3), activation='relu', padding='same', strides=strides[1]),
         BatchNormalization(),
-        Conv2DTranspose(64, (3, 3), activation='relu', padding='same', strides=(5, 5)),
+        Conv2DTranspose(64, (3, 3), activation='relu', padding='same', strides=strides[0]),
         BatchNormalization(),
         Conv2DTranspose(32, (3, 3), activation='relu', padding='same'),
         BatchNormalization(),
@@ -237,14 +268,14 @@ if __name__ == '__main__':
     # Not using test atm
     train, val, _ = load_data(data_dir, sequence_length, windows, freq_bins, percentage)
     
-    # look at data to make sure we aren't crazy
-    if loglevel == 'debug':
-        for x in train.take(1):
-            logging.debug(f'Training data shape: {x.shape}')
-
     # Build the autoencoder
     autoencoder = build_model(windows, freq_bins)
 
+    # look at data to make sure we aren't crazy
+    # if loglevel == 'debug':
+    #     for x in train.take(1):
+    #         logging.debug(f'Training data shape: {x.shape}')
+    
     # look at the model
     logging.debug(autoencoder.summary())
 
