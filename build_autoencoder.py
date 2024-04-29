@@ -161,14 +161,21 @@ def get_strides(windows, freq_bins, num_layers, max_stride=8):
     return strides
     
 
-def build_model(windows, freq_bins, input_dim=2):
+def build_model(windows, freq_bins, input_dim=2, var_input=False):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
 
     strides = get_strides(windows, freq_bins, 2)
+
+    if var_input:
+        logging.debug('Using variable input')
+        input_layer = Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(None, freq_bins, input_dim))
+    else:
+        logging.debug('Using fixed input')
+        input_layer = Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(windows, freq_bins, input_dim))
     
     model = Sequential([
         # Encoder
-        Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(windows, freq_bins, input_dim)),
+        input_layer,
         BatchNormalization(),
         Conv2D(64, (3, 3), activation='relu', padding='same', strides=strides[0]),
         BatchNormalization(),
@@ -193,10 +200,15 @@ def build_model(windows, freq_bins, input_dim=2):
     model.compile(optimizer=Adam(), loss='mse', run_eagerly=True, metrics=['mae'])
     return model
 
-# Below debugging functions courtesy of Liqian :)
-def test_preprocess_function(sequence_length, windows, freq_bins):
+def preprocess_input(sequence_length, windows, freq_bins, test_input=None, sr=None):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
-    test_input, _ = librosa.load(librosa.example('brahms'), sr=SAMPLE_RATE, mono=True)
+    if test_input is None:
+        test_input, _ = librosa.load(librosa.example('brahms'), sr=SAMPLE_RATE, mono=True)
+        test = True
+    else:
+        test = False
+        if sr != SAMPLE_RATE:
+            test_input = librosa.resample(test_input, orig_sr=sr, target_sr=SAMPLE_RATE)
     # make sure duration is accurate
     if len(test_input) < sequence_length:
         # pad
@@ -206,11 +218,16 @@ def test_preprocess_function(sequence_length, windows, freq_bins):
     test_input[len(test_input)//2] = float('nan')
     test_input = tf.convert_to_tensor(test_input)
     # preprocess
-    processed_input = preprocess(test_input, sequence_length, windows, freq_bins)
+    processed_input, _ = preprocess(test_input, sequence_length, windows, freq_bins)
     # Check if any NaNs remain
-    contains_nan = tf.reduce_any(tf.math.is_nan(processed_input[0]))
+    contains_nan = tf.reduce_any(tf.math.is_nan(processed_input))
     logging.debug(f'Contains NaN: {contains_nan.numpy()}')
+    if not test:
+        # Add batch dimension
+        processed_input = tf.expand_dims(processed_input, axis=0)
+        return processed_input
 
+# Below debugging functions courtesy of Liqian :)
 class CheckNan(Layer):
     def __init__(self, **kwargs):
         super(CheckNan, self).__init__(**kwargs)
@@ -225,6 +242,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--data-dir', type=str, required=True, help='Directory containing the audio files')
     parser.add_argument('--duration', type=int, default=30, help='Duration of audio (in seconds) to use for training')
+    parser.add_argument('--var-input', action='store_true', help='Use variable input size for model')
     parser.add_argument('--percentage', type=float, help='Percentage of dataset to use')
     parser.add_argument('--log', type=str, default='warn', help='Logging level (choose from: critical, error, warn, info, debug)')
 
@@ -244,6 +262,7 @@ if __name__ == '__main__':
     logging.basicConfig(stream=sys.stderr, level=levels[loglevel], format='%(asctime)s - %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     data_dir = Path(args.data_dir)
     duration = args.duration
+    var_input = args.var_input
     percentage = args.percentage if args.percentage else 0.6
     logging.debug(f'Duration set to {duration}')
     if duration < 1:
@@ -257,14 +276,15 @@ if __name__ == '__main__':
 
     # Test the preprocess function
     if loglevel == 'debug':
-        test_preprocess_function(sequence_length, windows, freq_bins)
+        # Test example input
+        preprocess_input(sequence_length, windows, freq_bins)
     
     # Load audio and split into datasets
     # Not using test atm
     train, val, _ = load_data(data_dir, sequence_length, windows, freq_bins, percentage)
     
     # Build the autoencoder
-    autoencoder = build_model(windows, freq_bins)
+    autoencoder = build_model(windows, freq_bins, var_input=var_input)
 
     # look at data to make sure we aren't crazy
     if loglevel == 'debug':

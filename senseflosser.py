@@ -1,14 +1,15 @@
+import sys
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 import logging
 import librosa
-from build_autoencoder import SAMPLE_RATE
-from keras.layers import Dropout, LSTM
+from keras.layers import Dropout, Conv2D, Conv2DTranspose
 from keras.models import Model
 
 
 def window_audio(y, window_size):
+    logging.debug('Entering ' + sys._getframe().f_code.co_name)
     # Split audio into windows
     windows = []
     for i in range(0, len(y), window_size):
@@ -18,28 +19,30 @@ def window_audio(y, window_size):
         windows.append(window)
     return windows
 
-def preprocess_input(y, sr, model):
-    if sr != SAMPLE_RATE:
-        y = librosa.resample(y, orig_sr=sr, target_sr=SAMPLE_RATE)
-    shape = model.input.shape
-    target_len = shape[1]
-    if len(y) < target_len:
-        y = [np.pad(y, (0,target_len - len(y)))]
-    elif len(y) > target_len:
-        y = window_audio(y, target_len)
-    y_windows = []
-    for window in y:
-        window = window.reshape(shape[1:])
-        window = tf.convert_to_tensor(window)
-        # Add batch dimension
-        window = tf.expand_dims(window, axis=0)
-        y_windows.append(window)
-    return y_windows, SAMPLE_RATE
+def postprocess_output(S_output, window_length, hop_length, wtype):
+    logging.debug('Entering ' + sys._getframe().f_code.co_name)
+    # Remove batch dimension
+    S_output = tf.squeeze(S_output, axis=0)
+
+    # Convert to numpy array
+    S_output = S_output.numpy()
+
+    # Last dimension is separated into magnitude and phase
+    # Reconstruct complex numbers
+    S_output = S_output[..., 0] + 1j * S_output[..., 1]
+
+    # Transpose to match librosa format
+    S_output = S_output.transpose()
+
+    # Reconstruct audio from output
+    y_output = librosa.istft(S_output, n_fft=window_length, hop_length=hop_length, window=wtype)
+    return y_output
 
 def fog(model, magnitude):
+    logging.debug('Entering ' + sys._getframe().f_code.co_name)
     for i, layer in enumerate(model.layers):
-        # Only run fog on LSTM layers; may do others later
-        if isinstance(layer, LSTM):
+        # Only run fog on Conv2Dlayers; may do others later
+        if isinstance(layer, Conv2D) or isinstance(layer, Conv2DTranspose):
             if i % 1 == 0:
                 weights = layer.get_weights()
                 new_weights = []
@@ -53,6 +56,7 @@ def fog(model, magnitude):
     return model
 
 def lapse(model, magnitude):
+    logging.debug('Entering ' + sys._getframe().f_code.co_name)
     new_model_layers = []
     input_layer = model.input
     x = input_layer
@@ -64,8 +68,8 @@ def lapse(model, magnitude):
         cloned_layer.set_weights(layer.get_weights())
         new_model_layers.append(cloned_layer)
         
-        if isinstance(layer, LSTM):
-            if i % 1 == 0:
+        if isinstance(layer, Conv2D) or isinstance(layer, Conv2DTranspose):
+            if i % 2 == 0: # Add dropout layers every other layer
                 dropout_layer = Dropout(magnitude)
                 x = dropout_layer(x)
                 new_model_layers.append(dropout_layer)
@@ -76,8 +80,9 @@ def lapse(model, magnitude):
     return new_model
 
 def floss_model(model, magnitude=0.1, action='fog'):
-    if 'LSTM' not in model.summary():
-        logging.warn('Model does not contain any LSTM layers; model will remain unmodified')
+    logging.debug('Entering ' + sys._getframe().f_code.co_name)
+    if 'Conv2d' not in model.summary():
+        logging.warn('Model does not contain any Conv2d layers; model will remain unmodified')
         return model
     if action == 'fog':
         model = fog(model, magnitude)
