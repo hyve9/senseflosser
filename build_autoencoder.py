@@ -38,9 +38,6 @@ def preprocess(audio, sequence_length, windows, freq_bins):
 
     # Remove extra dimensions
     if len(audio.shape) != 1:
-        # Convert to mono
-        breakpoint()
-        audio = tf.reduce_mean(audio, axis=-1)
         audio = tf.reshape(audio, [audio.shape[0]])
 
     # Check for and replace Nans
@@ -89,8 +86,9 @@ def preprocess(audio, sequence_length, windows, freq_bins):
 
 def load_data(data_dir, sequence_length, windows, freq_bins, percentage=0.6):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
-    logging.warning('This function expects all audio to be preprocessed at 22 kHz.') 
+    logging.warning('This function expects all audio to be mono, 22 kHz, 16-bit.') 
     logging.warning('If this is not the case, you will likely get strange results.')
+    logging.warning('See the ffmpeg preprocessing scripts under ./scripts to preprocess audio.')
     # More efficient than using librosa and iterating over directories
     full_dataset = tf.keras.utils.audio_dataset_from_directory(
         directory=data_dir,
