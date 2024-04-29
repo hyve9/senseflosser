@@ -1,4 +1,5 @@
 import sys
+import os
 import argparse
 import logging
 import librosa
@@ -6,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 import keras
 from pathlib import Path
-from keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from keras.layers import (Input, 
                           Layer, 
                           Conv2D, 
@@ -295,10 +296,33 @@ if __name__ == '__main__':
     # look at the model
     logging.debug(autoencoder.summary())
 
+    # Callbacks
+    ckpt_folder = Path('./checkpoints')
+    os.makedirs(ckpt_folder, exist_ok=True)
+    ckpt_name = 'cp-{epoch:04d}.ckpt'
+    early_stop = EarlyStopping(
+        monitor='val_loss', 
+        patience=5, 
+        restore_best_weights=True
+        )
+    reduce_lr = ReduceLROnPlateau(
+        monitor='val_loss', 
+        factor=0.2, 
+        patience=5, 
+        min_lr=0.001
+        )
+    model_ckpt = ModelCheckpoint(
+        filepath=ckpt_folder.joinpath(ckpt_name),
+        save_weights_only=True,
+        verbose=1,
+        save_freq='epoch',
+        save_best_only=True,
+        monitor='val_loss',
+        mode='min'
+        )
+
     # Train the model
-    early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
-    history = autoencoder.fit(x=train, epochs=EPOCHS, validation_data=val, callbacks=[early_stop, reduce_lr])
+    history = autoencoder.fit(x=train, epochs=EPOCHS, validation_data=val, callbacks=[early_stop, reduce_lr, model_ckpt])
 
     # Save model
     autoencoder.save(f'models/{duration}s_audio_autoencoder.h5')
