@@ -36,12 +36,11 @@ VAL_RATIO = 0.4
 def preprocess(audio, sequence_length, windows, freq_bins):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
 
-    # Convert to mono
-    if audio.shape[-1] == 2:
-        audio = tf.reduce_mean(audio, axis=-1)
-
     # Remove extra dimensions
     if len(audio.shape) != 1:
+        # Convert to mono
+        breakpoint()
+        audio = tf.reduce_mean(audio, axis=-1)
         audio = tf.reshape(audio, [audio.shape[0]])
 
     # Check for and replace Nans
