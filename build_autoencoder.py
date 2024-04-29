@@ -39,27 +39,26 @@ VAL_RATIO = 0.3
 
 def preprocess(audio, sequence_length, windows, freq_bins):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
-    # For some reason Functional.call() is complaining about this
-    audio = tf.reshape(audio, [-1, tf.shape(audio)[1]])
 
-    # Check for nans
+    # Reshape
+    if len(audio.shape) != 1:
+        audio = tf.reshape(audio, [audio.shape[0]])
+
+    # Check for and replace Nans
     audio = tf.where(tf.math.is_nan(audio), tf.zeros_like(audio), audio)
 
-    # Convert audio to mono if it is stereo
-    if audio.shape[-1] == 2:  # Check if the last dimension (channel dimension) is 2
-        audio = tf.reduce_mean(audio, axis=-1)  # Average the two channels
-
     # Check for incorrect audio length
-    offset = sequence_length - audio.shape[1]
+    offset = sequence_length - audio.shape[0]
     if offset > 0:
         logging.warning(f'Audio is too short, padding with {offset} zeros.')
-        audio = tf.pad(audio, [[0, 0], [0, offset]], "CONSTANT")
+        # audio = tf.pad(audio, [[0, 0], [0, offset]], "CONSTANT")
+        audio = tf.pad(audio, [[0, offset]], "CONSTANT")
     if offset < 0:
         logging.warning(f'Audio is too long, truncating to {sequence_length} samples.')
-        audio = audio[:, :sequence_length]
+        audio = audio[:sequence_length]
 
     # Normalize audio between -1 and 1
-    max_val = tf.reduce_max(tf.abs(audio), axis=1, keepdims=True)
+    max_val = tf.reduce_max(tf.abs(audio), axis=0, keepdims=True)
     max_val = tf.maximum(max_val, 1e-5)
     audio = audio / max_val
 
@@ -84,9 +83,11 @@ def preprocess(audio, sequence_length, windows, freq_bins):
     S_audio = tf.stack([reals, imags], axis=-1)
 
     # Make sure the shape matches windows, freq_bins, input_dim
-    if S_audio.shape[1:] != tf.TensorShape([windows, freq_bins, 2]):
-        logging.warning(f'Audio shape {S_audio.shape} does not match expected shape {[S_audio.shape[0], windows, freq_bins, 2]}')
-        S_audio = tf.reshape(S_audio, [-1, windows, freq_bins, 2])
+    if S_audio.shape != tf.TensorShape([windows, freq_bins, 2]):
+        logging.warning(f'Audio shape {S_audio.shape} does not match expected shape {[windows, freq_bins, 2]}')
+        audio = audio
+        breakpoint()
+        S_audio = tf.reshape(S_audio, [windows, freq_bins, 2])
     return (S_audio, S_audio)
 
 def load_data(data_dir, sequence_length, windows, freq_bins, percentage=0.6):
@@ -96,7 +97,7 @@ def load_data(data_dir, sequence_length, windows, freq_bins, percentage=0.6):
     # More efficient than using librosa and iterating over directories
     full_dataset = tf.keras.utils.audio_dataset_from_directory(
         directory=data_dir,
-        batch_size=1,
+        batch_size=None,
         seed=0,
         labels=None,
         label_mode=None,
@@ -128,7 +129,7 @@ def load_data(data_dir, sequence_length, windows, freq_bins, percentage=0.6):
 
     # Cache and prefetch
     # Tensorflow says this is more efficient: (https://www.tensorflow.org/tutorials/audio/simple_audio)
-    train = train.cache().batch(BATCH_SIZE).shuffle(SHUFFLE_SIZE).prefetch(tf.data.AUTOTUNE)
+    train = train.cache().shuffle(SHUFFLE_SIZE).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
     val = val.cache().batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
     test = test.cache().batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
@@ -164,7 +165,7 @@ def build_model(windows, freq_bins, input_dim=2):
         Cropping2D(cropping=((0, 3), (0, 3)))
     ])
 
-    model.compile(optimizer=Adam(), loss='mse')
+    model.compile(optimizer=Adam(), loss='mse', run_eagerly=True, metrics=['mae'])
     return model
 
 # Below debugging functions courtesy of Liqian :)
@@ -179,8 +180,6 @@ def test_preprocess_function(sequence_length, windows, freq_bins):
         test_input = test_input[:sequence_length]
     test_input[len(test_input)//2] = float('nan')
     test_input = tf.convert_to_tensor(test_input)
-    # Add dims to match dataset
-    test_input = tf.reshape(test_input, [1, -1, 1])
     # preprocess
     processed_input = preprocess(test_input, sequence_length, windows, freq_bins)
     # Check if any NaNs remain
@@ -229,8 +228,8 @@ if __name__ == '__main__':
 
     # Model params
     sequence_length = duration * SAMPLE_RATE - ((duration * SAMPLE_RATE) % WINDOW_LEN)
-    windows = ((sequence_length - WINDOW_LEN) // HOP_LEN) + 1
     freq_bins = WINDOW_LEN // 2 + 1
+    windows = ((sequence_length - WINDOW_LEN) // HOP_LEN) + 1
 
     # Test the preprocess function
     if loglevel == 'debug':
