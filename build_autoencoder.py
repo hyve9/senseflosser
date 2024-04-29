@@ -47,7 +47,6 @@ def preprocess(audio, sequence_length, windows, freq_bins):
     offset = sequence_length - audio.shape[0]
     if offset > 0:
         logging.warning(f'Audio is too short, padding with {offset} zeros.')
-        # audio = tf.pad(audio, [[0, 0], [0, offset]], "CONSTANT")
         audio = tf.pad(audio, [[0, offset]], "CONSTANT")
     if offset < 0:
         logging.warning(f'Audio is too long, truncating to {sequence_length} samples.')
@@ -108,7 +107,7 @@ def load_data(data_dir, sequence_length, windows, freq_bins, percentage=0.6):
     # Sometimes audio is empty; get rid of it
     full_dataset = full_dataset.filter(lambda x: tf.size(x) > 0)
 
-    for features in full_dataset.take(10):
+    for features in full_dataset.take(5):
         logging.debug(features.shape)
 
     # Preprocess data
@@ -210,7 +209,6 @@ def test_preprocess_function(sequence_length, windows, freq_bins):
     processed_input = preprocess(test_input, sequence_length, windows, freq_bins)
     # Check if any NaNs remain
     contains_nan = tf.reduce_any(tf.math.is_nan(processed_input[0]))
-    # logging.debug(f'Processed input: {processed_input[0].numpy()}')
     logging.debug(f'Contains NaN: {contains_nan.numpy()}')
 
 class CheckNan(Layer):
@@ -269,9 +267,10 @@ if __name__ == '__main__':
     autoencoder = build_model(windows, freq_bins)
 
     # look at data to make sure we aren't crazy
-    # if loglevel == 'debug':
-    #     for x in train.take(1):
-    #         logging.debug(f'Training data shape: {x.shape}')
+    if loglevel == 'debug':
+        for x, y in train.take(1):
+            logging.debug(f'Training x shape: {x.shape}')
+            logging.debug(f'Training y shape: {y.shape}')
     
     # look at the model
     logging.debug(autoencoder.summary())
