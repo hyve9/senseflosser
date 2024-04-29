@@ -26,7 +26,7 @@ HOP_LEN = WINDOW_LEN // 2
 WTYPE = tf.signal.hann_window
 
 # Model
-EPOCHS = 25
+EPOCHS = 50
 BATCH_SIZE = 16
 SHUFFLE_SIZE = 128
 
@@ -196,7 +196,7 @@ def build_model(windows, freq_bins, input_dim=2):
 # Below debugging functions courtesy of Liqian :)
 def test_preprocess_function(sequence_length, windows, freq_bins):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
-    test_input, _ = librosa.load('data/fma_small/006/006329.wav.wav', sr=SAMPLE_RATE)
+    test_input, _ = librosa.load(librosa.example('brahms'), sr=SAMPLE_RATE, mono=True)
     # make sure duration is accurate
     if len(test_input) < sequence_length:
         # pad
