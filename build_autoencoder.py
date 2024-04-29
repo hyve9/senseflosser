@@ -1,4 +1,3 @@
-import os
 import sys
 import argparse
 import logging
@@ -12,12 +11,9 @@ from keras.layers import (Input,
                           Layer, 
                           Conv2D, 
                           Conv2DTranspose, 
-                          UpSampling2D, 
                           BatchNormalization, 
-                          Reshape, 
-                          Cropping2D
                             )
-from keras.models import Model, Sequential
+from keras.models import Sequential
 from keras.optimizers import Adam
 
 # Constants
@@ -85,8 +81,6 @@ def preprocess(audio, sequence_length, windows, freq_bins):
     # Make sure the shape matches windows, freq_bins, input_dim
     if S_audio.shape != tf.TensorShape([windows, freq_bins, 2]):
         logging.warning(f'Audio shape {S_audio.shape} does not match expected shape {[windows, freq_bins, 2]}')
-        audio = audio
-        breakpoint()
         S_audio = tf.reshape(S_audio, [windows, freq_bins, 2])
     return (S_audio, S_audio)
 
@@ -142,27 +136,24 @@ def build_model(windows, freq_bins, input_dim=2):
         # Encoder
         Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(windows, freq_bins, input_dim)),
         BatchNormalization(),
-        Conv2D(64, (3, 3), activation='relu', padding='same', strides=(2, 2)),
+        Conv2D(64, (3, 3), activation='relu', padding='same', strides=(5, 5)),
         BatchNormalization(),
-        Conv2D(128, (3, 3), activation='relu', padding='same', strides=(2, 2)),
+        Conv2D(128, (3, 3), activation='relu', padding='same', strides=(3, 5)),
         BatchNormalization(),
 
         # Bottleneck
         Conv2D(256, (3, 3), activation='relu', padding='same'),
 
         # Decoder
-        Conv2DTranspose(128, (3, 3), activation='relu', padding='same', strides=(2, 2)),
+        Conv2DTranspose(128, (3, 3), activation='relu', padding='same', strides=(3, 5)),
         BatchNormalization(),
-        Conv2DTranspose(64, (3, 3), activation='relu', padding='same', strides=(2, 2)),
+        Conv2DTranspose(64, (3, 3), activation='relu', padding='same', strides=(5, 5)),
         BatchNormalization(),
         Conv2DTranspose(32, (3, 3), activation='relu', padding='same'),
         BatchNormalization(),
 
         # Output layer
-        Conv2D(input_dim, (3, 3), activation='linear', padding='same'),
-
-        # Output layer does not match input shape for some reason
-        Cropping2D(cropping=((0, 3), (0, 3)))
+        Conv2D(input_dim, (3, 3), activation='linear', padding='same')
     ])
 
     model.compile(optimizer=Adam(), loss='mse', run_eagerly=True, metrics=['mae'])
