@@ -28,19 +28,19 @@ optional arguments:
 ```
 
 ```
-usage: run_senseflosser.py [-h] [--model-file MODEL_FILE] [--magnitude MAGNITUDE] [--titrate] [--duration DURATION]
-                           [--action ACTION] [--input INPUT] [--save-model] [--log LOG]
+usage: run_senseflosser.py [-h] [--model MODEL] [--magnitude MAGNITUDE] [--titrate] [--duration DURATION] [--action ACTION] [--input INPUT] [--output-dir OUTPUT_DIR] [--save-model] [--log LOG]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --model-file MODEL_FILE
-                        Model file to load
+  --model MODEL         Model file to load
   --magnitude MAGNITUDE
                         Magnitude of noise to introduce
   --titrate             Titrate noise magnitude
   --duration DURATION   Duration of audio in seconds
   --action ACTION       Action to perform (currently fog or lapse)
   --input INPUT         Input file to process
+  --output-dir OUTPUT_DIR
+                        Output directory (default: ./output)
   --save-model          Save flossed model
   --log LOG             Logging level (choose from: critical, error, warn, info, debug)
 ```

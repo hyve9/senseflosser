@@ -17,13 +17,13 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--model-file', type=str, default='models/5s_audio_autoencoder.h5', help='Model file to load')
+    parser.add_argument('--model', type=str, default='models/5s_audio_autoencoder.h5', help='Model file to load')
     parser.add_argument('--magnitude', type=float, default=0.01, help='Magnitude of noise to introduce')
     parser.add_argument('--titrate', action='store_true', help='Titrate noise magnitude')
     parser.add_argument('--duration', type=int, help='Duration of audio in seconds')
     parser.add_argument('--action', type=str, default='fog', help='Action to perform (currently fog or lapse)')
     parser.add_argument('--input', type=str, help='Input file to process')
-    parser.add_argument('--output-dir', type=str, default='output', help='Output file to write')
+    parser.add_argument('--output-dir', type=str, default='./output', help='Output directory (default: ./output)')
     parser.add_argument('--save-model', action='store_true', help='Save flossed model')
     parser.add_argument('--log', type=str, default='warn', help='Logging level (choose from: critical, error, warn, info, debug)')
 
@@ -51,12 +51,12 @@ if __name__ == '__main__':
     if action not in ['fog', 'lapse']:
         logging.error('Action must be either fog or lapse')
         sys.exit(1)
-    input = Path(args.input)
-    model_file = Path(args.model_file)
+    input_file = Path(args.input)
+    model_file = Path(args.model)
     orig_model = keras.models.load_model(model_file)
 
     # Obtain normal output
-    y, sr = librosa.load(input, mono=True)
+    y, sr = librosa.load(input_file, mono=True)
 
     # Model params
     if duration is None:
@@ -84,23 +84,19 @@ if __name__ == '__main__':
         flossed_outputs[magnitude[i]] = postprocess_output(flossed_output, WINDOW_LEN, HOP_LEN, WTYPE)
 
     # Write waveforms
-    if args.output_dir:
-        work_folder = Path(args.output_dir)
-    else:
-        work_folder = Path('./output')
-    os.makedirs(work_folder, exist_ok=True)
-    output_file_prefix = input.stem
-    wavfile.write(work_folder.joinpath(f'{output_file_prefix}_normal.wav'), SAMPLE_RATE, normal_output)
+    output_dir = Path(args.output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    output_file_prefix = input_file.stem
+    wavfile.write(output_dir.joinpath(f'{output_file_prefix}_normal.wav'), SAMPLE_RATE, normal_output)
     for m in flossed_outputs:
-        wavfile.write(work_folder.joinpath(f'{output_file_prefix}_{action}_{m}.wav'), SAMPLE_RATE, flossed_outputs[m])
+        wavfile.write(output_idr.joinpath(f'{output_file_prefix}_{action}_{m}.wav'), SAMPLE_RATE, flossed_outputs[m])
 
     # Save flossed model
     if args.save_model:
         if args.titrate:
             logging.error('Not saving titrated models; please specify a single magnitude.')
             sys.exit(0)
-        model_folder = Path('./models')
-        os.makedirs(model_folder, exist_ok=True)
+        model_dir = Path('./models')
+        os.makedirs(model_dir, exist_ok=True)
         output_model_prefix = model_file.stem
-        flossed_model.save(model_folder.joinpath(f'{output_model_prefix}_{action}_{magnitude[0]}.h5'))
-    
+        flossed_model.save(model_dir.joinpath(f'{output_model_prefix}_{action}_{magnitude[0]}.h5'))
