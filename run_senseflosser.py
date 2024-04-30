@@ -23,6 +23,7 @@ if __name__ == '__main__':
     parser.add_argument('--duration', type=int, help='Duration of audio in seconds')
     parser.add_argument('--action', type=str, default='fog', help='Action to perform (currently fog or lapse)')
     parser.add_argument('--input', type=str, help='Input file to process')
+    parser.add_argument('--output-dir', type=str, default='output', help='Output file to write')
     parser.add_argument('--save-model', action='store_true', help='Save flossed model')
     parser.add_argument('--log', type=str, default='warn', help='Logging level (choose from: critical, error, warn, info, debug)')
 
@@ -83,7 +84,10 @@ if __name__ == '__main__':
         flossed_outputs[magnitude[i]] = postprocess_output(flossed_output, WINDOW_LEN, HOP_LEN, WTYPE)
 
     # Write waveforms
-    work_folder = Path('./output')
+    if args.output_dir:
+        work_folder = Path(args.output_dir)
+    else:
+        work_folder = Path('./output')
     os.makedirs(work_folder, exist_ok=True)
     output_file_prefix = input.stem
     wavfile.write(work_folder.joinpath(f'{output_file_prefix}_normal.wav'), SAMPLE_RATE, normal_output)
