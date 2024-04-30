@@ -2,3 +2,5 @@ __pycache__
 data/
 .vscode/
 *.log
+requirements.txt
+pre_flask_senseflosser.yml
