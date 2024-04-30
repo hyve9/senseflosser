@@ -1,5 +1,4 @@
-A few options for environtment files
+A few options for environment files
 
 - `environment.yml` : exported from linux system
-- `win_environment` : used from `environment.yml` to set up on a windows system w/ gpu
-- `requirements.txt` : exported from windows system for use with google colab
+- `win_environment.yml` : used from `environment.yml` to set up on a windows system w/ gpu

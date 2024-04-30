@@ -89,7 +89,7 @@ if __name__ == '__main__':
     output_file_prefix = input_file.stem
     wavfile.write(output_dir.joinpath(f'{output_file_prefix}_normal.wav'), SAMPLE_RATE, normal_output)
     for m in flossed_outputs:
-        wavfile.write(output_idr.joinpath(f'{output_file_prefix}_{action}_{m}.wav'), SAMPLE_RATE, flossed_outputs[m])
+        wavfile.write(output_dir.joinpath(f'{output_file_prefix}_{action}_{m}.wav'), SAMPLE_RATE, flossed_outputs[m])
 
     # Save flossed model
     if args.save_model:
