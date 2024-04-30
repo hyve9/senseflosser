@@ -36,6 +36,9 @@ def postprocess_output(S_output, window_length, hop_length, wtype):
 
     # Reconstruct audio from output
     y_output = librosa.istft(S_output, n_fft=window_length, hop_length=hop_length, window=wtype)
+
+    # Normalize audio
+    y_output = librosa.util.normalize(y_output)
     return y_output
 
 def fog(model, magnitude):
@@ -43,16 +46,16 @@ def fog(model, magnitude):
     for i, layer in enumerate(model.layers):
         # Only run fog on Conv2Dlayers; may do others later
         if isinstance(layer, Conv2D) or isinstance(layer, Conv2DTranspose):
-            if i % 1 == 0:
-                weights = layer.get_weights()
-                new_weights = []
-                for weight_matrix in weights:
-                    # Introduce random noise or zero out weights
-                    shape = weight_matrix.shape
-                    noise = np.random.normal(loc=0.0, scale=magnitude, size=shape)
-                    new_weight_matrix = weight_matrix + noise
-                    new_weights.append(new_weight_matrix)
-                model.layers[i].set_weights(new_weights)
+            weights = layer.get_weights()
+            new_weights = []
+            for weight_matrix in weights:
+                # Introduce random noise or zero out weights
+                mask = np.random.binomial(1, p=0.5, size=weight_matrix.shape) # don't modify every weight
+                shape = weight_matrix.shape
+                noise = np.random.normal(loc=0.0, scale=magnitude, size=shape)
+                new_weight_matrix = weight_matrix + (noise * mask)
+                new_weights.append(new_weight_matrix)
+            model.layers[i].set_weights(new_weights)
     return model
 
 def lapse(model, magnitude):
@@ -69,10 +72,9 @@ def lapse(model, magnitude):
         new_model_layers.append(cloned_layer)
         
         if isinstance(layer, Conv2D) or isinstance(layer, Conv2DTranspose):
-            if i % 2 == 0: # Add dropout layers every other layer
-                dropout_layer = Dropout(magnitude)
-                x = dropout_layer(x)
-                new_model_layers.append(dropout_layer)
+            dropout_layer = Dropout(magnitude)
+            x = dropout_layer(x)
+            new_model_layers.append(dropout_layer)
                 
     # Create new model based on the functional API
     new_model = Model(inputs=input_layer, outputs=x)
@@ -81,7 +83,7 @@ def lapse(model, magnitude):
 
 def floss_model(model, magnitude=0.1, action='fog'):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
-    if 'Conv2d' not in model.summary():
+    if not any(isinstance(layer, Conv2D) for layer in model.layers):
         logging.warn('Model does not contain any Conv2d layers; model will remain unmodified')
         return model
     if action == 'fog':
