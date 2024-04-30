@@ -7,7 +7,7 @@ Takes an autoencoder keras model and adversarially attempts to deteriorate layer
 ### Setup: Create conda environment
 
 ```
-conda create -f environment.yml -n senseflosser 
+conda create -f envs/environment.yml -n senseflosser 
 conda activate senseflosser
 ```
 
@@ -45,12 +45,14 @@ optional arguments:
   --log LOG             Logging level (choose from: critical, error, warn, info, debug)
 ```
 
+_Note: All tools/programs must be run from the root of this directory._
+
 ## Autoencoder
 
 This repo contains two tools (which should probably be separated into different projects). The first simply builds an audio autoencoder. This should reproduce audio input. To build your own autoencoder, you can run, for example:
 
 ```
-python build_autoencoder.py --data-dir data/your_dataset --percentage 0.4 --duration 10 --log debug --var-input
+python build_autoencoder.py --data-dir data/fma_small --percentage 0.4 --duration 10 --log debug --var-input
 ```
 
 This will build an autoencoder trained on 10 second samples grabbed from 40% of your data, and will build the model in such a way that it supports inference (prediction) on variable length input. 
@@ -60,16 +62,16 @@ The model will be saved under `models/<duration>s_audio_autoencoder.h5`
 
 The autoencoder is designed to work with 22 kHz, 16-bit, single-channel audio `.wav` files. Any other file format or encoding will cause the model to fail, although I'm sure it can be designed to be more robust. Submit a PR if you have an idea!
 
-If you aren't lucky enough to have data that is in that format, there are two scripts that can do this for you. One will iterate through your data directory and convert all files from <extension> to `.wav`, reduce to mono, and resample to 22050. To use:
+If you aren't lucky enough to have data that is in that format, there are two shell scripts that can do this for you. One will iterate through your data directory and convert all files from <extension> to `.wav`, reduce to mono, and resample to 22050. To use:
 
 ```
-./scripts/fma_wav_full_converter.sh data/your_data_dir mp3
+./tools/fma_wav_full_converter.sh data/fma_small/ mp3
 ```
 
 If you just want to mix to single channel and resample (you already have wav files):
 
 ```
-./scripts/fma_wav_resampler.sh data/your_data_dir
+./tools/fma_wav_resampler.sh data/fma_small/
 ```
 
 This project used the 
@@ -91,5 +93,5 @@ If you want to save your degraded model, add the `--save-model` option.
 
 This project was built for the Spring '24 Deep Learning for Media class at NYU. 
 
-- **FMA Dataset**: The autoencoders included in this repo were trained on (preprocessed) data from the [FMA Dataset](https://github.com/mdeff/fma), and the two scripts mentioned above expect a similar directory structure. The FMA dataset is licensed under the MIT License.
+- **FMA Dataset**: The autoencoders included in this repo were trained on (preprocessed) data from the [FMA Dataset](https://github.com/mdeff/fma), and the two shell scripts mentioned above expect a similar directory structure. The FMA dataset is licensed under the MIT License.
 

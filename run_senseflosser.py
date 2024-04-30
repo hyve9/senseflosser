@@ -5,16 +5,13 @@ import logging
 import librosa
 from scipy.io import wavfile
 from pathlib import Path
-import numpy as np
-import tensorflow as tf
 from tensorflow import keras
-from senseflosser import floss_model, postprocess_output
-from build_autoencoder import (preprocess_input,
+from senseflosser.senseflosser import floss_model, postprocess_output
+from autoencoder.autoencoder import (preprocess_input,
                                  SAMPLE_RATE,
                                  HOP_LEN,
                                  WINDOW_LEN,
-                                 WTYPE
-                                 )
+                                 WTYPE)
 
 if __name__ == '__main__':
 
