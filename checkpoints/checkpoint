@@ -1,0 +1,2 @@
+model_checkpoint_path: "b16_e50_d15s_audio_autoencoder_best.ckpt"
+all_model_checkpoint_paths: "b16_e50_d15s_audio_autoencoder_best.ckpt"
