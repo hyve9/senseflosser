@@ -298,8 +298,10 @@ if __name__ == '__main__':
 
     # Callbacks
     ckpt_folder = Path('./checkpoints')
+    if ckpt_folder.exists():
+        autoencoder.load_weights(ckpt_folder)
     os.makedirs(ckpt_folder, exist_ok=True)
-    ckpt_name = 'cp-{epoch:04d}.ckpt'
+    ckpt_name = f'b{BATCH_SIZE}_e{EPOCHS}_d{duration}s_audio_autoencoder_best.ckpt'
     early_stop = EarlyStopping(
         monitor='val_loss', 
         patience=5, 
@@ -313,12 +315,11 @@ if __name__ == '__main__':
         )
     model_ckpt = ModelCheckpoint(
         filepath=ckpt_folder.joinpath(ckpt_name),
-        save_weights_only=True,
-        verbose=1,
-        save_freq='epoch',
-        save_best_only=True,
-        monitor='val_loss',
-        mode='min'
+        save_weights_only=True, 
+        save_best_only=True, 
+        monitor='val_loss', 
+        mode='min', 
+        verbose=1
         )
 
     # Train the model
