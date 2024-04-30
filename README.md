@@ -91,5 +91,5 @@ If you want to save your degraded model, add the `--save-model` option.
 
 This project was built for the Spring '24 Deep Learning for Media class at NYU. 
 
-- **FMA Dataset**: The autoencoders included in this repo were trained on (preprocessed) data from the[FMA Dataset](https://github.com/mdeff/fma), and the two scripts mentioned above expect a similar directory structure. The FMA dataset is licensed under the MIT License.
+- **FMA Dataset**: The autoencoders included in this repo were trained on (preprocessed) data from the [FMA Dataset](https://github.com/mdeff/fma), and the two scripts mentioned above expect a similar directory structure. The FMA dataset is licensed under the MIT License.
 
