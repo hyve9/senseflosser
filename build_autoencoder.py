@@ -299,7 +299,8 @@ if __name__ == '__main__':
     # Callbacks
     ckpt_folder = Path('./checkpoints')
     if ckpt_folder.exists():
-        autoencoder.load_weights(ckpt_folder)
+        latest = tf.train.latest_checkpoint(ckpt_folder)
+        autoencoder.load_weights(latest)
     os.makedirs(ckpt_folder, exist_ok=True)
     ckpt_name = f'b{BATCH_SIZE}_e{EPOCHS}_d{duration}s_audio_autoencoder_best.ckpt'
     early_stop = EarlyStopping(
@@ -323,7 +324,7 @@ if __name__ == '__main__':
         )
 
     # Train the model
-    history = autoencoder.fit(x=train, epochs=EPOCHS, validation_data=val, callbacks=[early_stop, reduce_lr, model_ckpt])
+    history = autoencoder.fit(x=train, epochs=EPOCHS, validation_data=val, callbacks=[early_stop, reduce_lr, model_ckpt], verbose=1)
 
     # Save model
     autoencoder.save(f'models/{duration}s_audio_autoencoder.h5')
