@@ -127,9 +127,9 @@ def load_data(data_dir, sequence_length, windows, freq_bins, percentage=0.6):
 
     # Cache and prefetch
     # Tensorflow says this is more efficient: (https://www.tensorflow.org/tutorials/audio/simple_audio)
-    train = train.cache().shuffle(SHUFFLE_SIZE).batch(BATCH_SIZE, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
-    val = val.cache().batch(BATCH_SIZE, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
-    test = test.cache().batch(BATCH_SIZE, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
+    train = train.cache().shuffle(SHUFFLE_SIZE).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+    val = val.cache().batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+    test = test.cache().batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
     return train, val, test
 
