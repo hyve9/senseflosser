@@ -5,8 +5,14 @@ from tensorflow import keras
 import logging
 import librosa
 from keras.layers import Dropout, Conv2D, Conv2DTranspose
-from keras.models import Model
+from keras.models import Model, Sequential
 
+class DropoutAtInference(Dropout):
+    # Adding dropout without training does not work
+    # See: https://keras.io/api/layers/regularization_layers/dropout/ for details
+    def call(self, inputs, training=None):
+        # Hardcode training to True
+        return super().call(inputs, training=True)
 
 def window_audio(y, window_size):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
@@ -58,7 +64,7 @@ def fog(model, magnitude):
             model.layers[i].set_weights(new_weights)
     return model
 
-def lapse(model, magnitude):
+def lapse_old(model, magnitude):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
     new_model_layers = []
     input_layer = model.input
@@ -78,6 +84,18 @@ def lapse(model, magnitude):
                 
     # Create new model based on the functional API
     new_model = Model(inputs=input_layer, outputs=x)
+    new_model.compile(optimizer=model.optimizer, loss=model.loss, metrics=model.metrics)
+    return new_model
+
+def lapse(model, magnitude):
+    logging.debug('Entering ' + sys._getframe().f_code.co_name)
+    new_model = Sequential()
+
+    for i, layer in enumerate(model.layers):
+        new_model.add(layer)
+        if isinstance(layer, Conv2D) or isinstance(layer, Conv2DTranspose) and i % 2 == 0:
+            new_model.add(DropoutAtInference(magnitude))
+
     new_model.compile(optimizer=model.optimizer, loss=model.loss, metrics=model.metrics)
     return new_model
 
