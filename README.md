@@ -28,19 +28,19 @@ optional arguments:
 ```
 
 ```
-usage: run_senseflosser.py [-h] [--model-file MODEL_FILE] [--magnitude MAGNITUDE] [--titrate] [--duration DURATION]
-                           [--action ACTION] [--input INPUT] [--save-model] [--log LOG]
+usage: run_senseflosser.py [-h] [--model MODEL] [--magnitude MAGNITUDE] [--titrate] [--duration DURATION] [--action ACTION] [--input INPUT] [--output-dir OUTPUT_DIR] [--save-model] [--log LOG]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --model-file MODEL_FILE
-                        Model file to load
+  --model MODEL         Model file to load
   --magnitude MAGNITUDE
                         Magnitude of noise to introduce
   --titrate             Titrate noise magnitude
   --duration DURATION   Duration of audio in seconds
   --action ACTION       Action to perform (currently fog or lapse)
   --input INPUT         Input file to process
+  --output-dir OUTPUT_DIR
+                        Output directory (default: ./output)
   --save-model          Save flossed model
   --log LOG             Logging level (choose from: critical, error, warn, info, debug)
 ```
@@ -72,9 +72,7 @@ If you just want to mix to single channel and resample (you already have wav fil
 
 ```
 ./tools/fma_wav_resampler.sh data/fma_small/
-```
-
-This project used the 
+``` 
 
 ## Senseflosser
 
@@ -89,9 +87,9 @@ This takes an input audio file, a pre-trained autoencoder, an action (here eithe
 Based on experimentation, good values for magnitude are between 0.02 and 0.5. Values higher than 0.5 severely degrade the audio (which may be what you want!)
 
 If you want to save your degraded model, add the `--save-model` option.
+
 ## Acknowledgments
 
 This project was built for the Spring '24 Deep Learning for Media class at NYU. 
 
 - **FMA Dataset**: The autoencoders included in this repo were trained on (preprocessed) data from the [FMA Dataset](https://github.com/mdeff/fma), and the two shell scripts mentioned above expect a similar directory structure. The FMA dataset is licensed under the MIT License.
-
