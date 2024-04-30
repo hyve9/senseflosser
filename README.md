@@ -7,7 +7,7 @@ Takes an autoencoder keras model and adversarially attempts to deteriorate layer
 ### Setup: Create conda environment
 
 ```
-conda create -f envs/envs/environment.yml -n senseflosser 
+conda create -f envs/environment.yml -n senseflosser 
 conda activate senseflosser
 ```
 
