@@ -5,7 +5,7 @@ import logging
 import tensorflow as tf
 from pathlib import Path
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
-from autoencoder.autoencoder import (preprocess_input, 
+from autoencoder.model import (preprocess_input, 
                                      load_data, 
                                      build_model,
                                      SAMPLE_RATE,

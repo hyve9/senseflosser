@@ -6,8 +6,8 @@ import librosa
 from scipy.io import wavfile
 from pathlib import Path
 from tensorflow import keras
-from senseflosser.senseflosser import floss_model, postprocess_output
-from autoencoder.autoencoder import (preprocess_input,
+from senseflosser.utils import floss_model, postprocess_output
+from autoencoder.model import (preprocess_input,
                                  SAMPLE_RATE,
                                  HOP_LEN,
                                  WINDOW_LEN,
