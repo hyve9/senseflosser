@@ -26,6 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('--duration', type=int, help='Duration of audio in seconds')
     parser.add_argument('--action', type=str, default='fog', help='Action to perform (currently fog or lapse)')
     parser.add_argument('--input', type=str, help='Input file to process')
+    parser.add_argument('--save-model', action='store_true', help='Save flossed model')
     parser.add_argument('--log', type=str, default='warn', help='Logging level (choose from: critical, error, warn, info, debug)')
 
     args = parser.parse_args()
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     if args.titrate:
         magnitude = [0.01, 0.05, 0.10, 0.20, 0.50]
     if args.titrate and args.magnitude:
-        logging.warning('Titrate takes precedence over magnitude; ignoring magnitude if it was specified...')
+        logging.warning('Titrate takes precedence over magnitude; ignoring magnitude if specified...')
     # Really need something more robust here
     duration = args.duration if args.duration else None
     action = args.action
@@ -93,8 +94,12 @@ if __name__ == '__main__':
         wavfile.write(work_folder.joinpath(f'{output_file_prefix}_{action}_{m}.wav'), SAMPLE_RATE, flossed_outputs[m])
 
     # Save flossed model
-    model_folder = Path('./models')
-    os.makedirs(model_folder, exist_ok=True)
-    output_model_prefix = model_file.stem
-    flossed_model.save(model_folder.joinpath(f'{output_model_prefix}_{action}_{magnitude[-1]}.h5'))
+    if args.save_model:
+        if args.titrate:
+            logging.error('Not saving titrated models; please specify a single magnitude.')
+            sys.exit(0)
+        model_folder = Path('./models')
+        os.makedirs(model_folder, exist_ok=True)
+        output_model_prefix = model_file.stem
+        flossed_model.save(model_folder.joinpath(f'{output_model_prefix}_{action}_{magnitude[0]}.h5'))
     
