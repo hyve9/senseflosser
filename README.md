@@ -72,7 +72,7 @@ If you just want to mix to single channel and resample (you already have wav fil
 ./scripts/fma_wav_resampler.sh data/your_data_dir
 ```
 
-This project used the [FMA Dataset](https://github.com/mdeff/fma), and the two scripts expect a similar directory structure.
+This project used the 
 
 ## Senseflosser
 
@@ -91,4 +91,5 @@ If you want to save your degraded model, add the `--save-model` option.
 
 This project was built for the Spring '24 Deep Learning for Media class at NYU. 
 
+- **FMA Dataset**: The autoencoders included in this repo were trained on (preprocessed) data from the[FMA Dataset](https://github.com/mdeff/fma), and the two scripts mentioned above expect a similar directory structure. The FMA dataset is licensed under the MIT License.
 
