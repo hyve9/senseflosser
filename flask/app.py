@@ -12,6 +12,8 @@ def get_audio_duration(audio_file):
 
 app = Flask(__name__)
 
+script_dir = os.path.dirname(os.path.realpath(__file__))
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -47,15 +49,15 @@ def index():
         print('stderr:', result.stderr)
         
         base_filename = os.path.basename(filename)
-        output_filename = os.path.join(os.getcwd(), '..', 'output', base_filename.rsplit('.', 1)[0] + '_normal.wav')
-        output_file_rel_path = os.path.relpath(output_filename, start=os.getcwd())
-        output_file_url_path = output_file_rel_path.replace('\\', '/') # for Windows but idk if it's necessary
+        output_filename = os.path.join(script_dir, '..', 'output', base_filename.rsplit('.', 1)[0] + '_normal.wav')
+        output_file_url_path = os.path.relpath(output_filename, start=script_dir)
+        # output_file_url_path = output_file_rel_path.replace('\\', '/') # for Windows but idk if it's necessary
         print('output_file_rel_path:', output_file_rel_path)
         output_file_url = request.url_root + output_file_url_path
         print('output_file_url:', output_file_url)
         return jsonify({'result': result.stdout, 'output_file_url': output_file_url})
     else:
-        model_dir = os.path.join(os.getcwd(), '..', 'models')
+        model_dir = os.path.join(script_dir, '..', 'models')
         model_files = [f for f in os.listdir(model_dir) if os.path.isfile(os.path.join(model_dir, f))]
         max_duration = 30  # Default max duration
         return render_template('index.html', max_duration=max_duration, model_files=model_files)
@@ -63,12 +65,12 @@ def index():
 
 @app.route('/output/<filename>')
 def serve_output(filename):
-    return send_from_directory(os.path.join(os.getcwd(), '..', 'output'), filename)
+    return send_from_directory(os.path.join(script_dir, '..', 'output'), filename)
 
 @app.route('/upload', methods=['POST'])
 def upload():
     audio_file = request.files['file']
-    filename = os.path.join(os.getcwd(), '..', 'uploads', secure_filename(audio_file.filename))
+    filename = os.path.join(script_dir, '..', 'uploads', secure_filename(audio_file.filename))
     audio_file.save(filename)
     max_duration = get_audio_duration(filename)
     return jsonify({'max_duration': max_duration})
