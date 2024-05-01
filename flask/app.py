@@ -74,4 +74,9 @@ def upload():
     return jsonify({'max_duration': max_duration})
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Run the Flask app')
+    parser.add_argument('--port', type=int, default=5000, help='Port number to run the app on') 
+    parser.add_argument('--host', type=str, default='127.0.0.1', help='Host address to run the app on')
+    args = parser.parse_args()
+    
     app.run(debug=True)
