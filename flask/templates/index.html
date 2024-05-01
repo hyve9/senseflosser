@@ -11,7 +11,7 @@
     Select model:
     <select name="model_name">
     {% for model_file in model_files %}
-        <option value="{{ model_file }}">{{ model_file }}</option>
+        <option value="{{ model_file.name }}">{{ model_file.name }}</option>
     {% endfor %}
     </select><br>
     
