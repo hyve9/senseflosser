@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify, send_from_directory
+from flask import Flask, request, render_template, jsonify, send_from_directory, url_for
 from werkzeug.utils import secure_filename
 import os
 import subprocess
@@ -86,15 +86,18 @@ def upload():
     os.makedirs(upload_dir, exist_ok=True)  # Ensure the upload directory exists
     filename = secure_filename(audio_file.filename)
     full_path = os.path.join(upload_dir, filename)
+    print("Saving file to", full_path)
     audio_file.save(full_path)
     max_duration = get_audio_duration(full_path)
-    file_url = request.url_root + 'uploads/' + filename
+    file_url = url_for('serve_upload', filename=filename, _external=True)
     print(file_url)
     return jsonify({'max_duration': max_duration, 'file_url': file_url})
 
 @app.route('/uploads/<filename>')
 def serve_upload(filename):
-    return send_from_directory(os.path.join(script_dir, '..', 'uploads'), filename)
+    print(script_dir)
+    print("Serving file from:", os.path.join(script_dir, 'uploads', filename))
+    return send_from_directory(os.path.join(script_dir, 'uploads'), filename)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run the Flask app')
