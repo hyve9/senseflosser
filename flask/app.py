@@ -18,7 +18,7 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 def index():
     if request.method == 'POST':
         audio_file = request.files['audio']
-        filename = os.path.join(os.getcwd(), '..', 'uploads', secure_filename(audio_file.filename))
+        filename = os.path.join(script_dir, 'uploads', secure_filename(audio_file.filename))  # Removed '..'
         audio_file.save(filename)
         max_duration = get_audio_duration(filename)
 
@@ -28,21 +28,33 @@ def index():
         duration = request.form['duration']
         action = request.form['action']
 
-        
         model_filename = os.path.join('..', 'models', model_name)
 
+        # result = subprocess.run([
+        #     'python', 
+        #     '../run_senseflosser.py', 
+        #     '--model', model_filename, 
+        #     '--magnitude', magnitude,
+        #     #'--titrate', # not sure yet
+        #     '--duration', duration,
+        #     '--action', action,
+        #     '--input', filename,
+        #     '--output-dir', '../output'],
+        #     capture_output=True,
+        #     text=True)
         result = subprocess.run([
             'python', 
-            '../run_senseflosser.py', 
+            os.path.join(script_dir, '..', 'run_senseflosser.py'),  # Use an absolute path
             '--model', model_filename, 
             '--magnitude', magnitude,
             #'--titrate', # not sure yet
             '--duration', duration,
             '--action', action,
             '--input', filename,
-            '--output-dir', '../output'],
+            '--output-dir', os.path.join(script_dir, '..', 'output')],  # Use an absolute path
             capture_output=True,
             text=True)
+
 
         print('return code:', result.returncode)
         print('stdout:', result.stdout)
@@ -52,7 +64,7 @@ def index():
         output_filename = os.path.join(script_dir, '..', 'output', base_filename.rsplit('.', 1)[0] + '_normal.wav')
         output_file_url_path = os.path.relpath(output_filename, start=script_dir)
         # output_file_url_path = output_file_rel_path.replace('\\', '/') # for Windows but idk if it's necessary
-        print('output_file_rel_path:', output_file_rel_path)
+        print('output_file_rel_path:', output_file_url_path)
         output_file_url = request.url_root + output_file_url_path
         print('output_file_url:', output_file_url)
         return jsonify({'result': result.stdout, 'output_file_url': output_file_url})
@@ -70,10 +82,13 @@ def serve_output(filename):
 @app.route('/upload', methods=['POST'])
 def upload():
     audio_file = request.files['file']
-    filename = os.path.join(script_dir, '..', 'uploads', secure_filename(audio_file.filename))
+    upload_dir = os.path.join(script_dir, 'uploads')
+    os.makedirs(upload_dir, exist_ok=True)  # Ensure the upload directory exists
+    filename = os.path.join(upload_dir, secure_filename(audio_file.filename))
     audio_file.save(filename)
     max_duration = get_audio_duration(filename)
-    return jsonify({'max_duration': max_duration})
+    file_url = request.url_root + 'uploads/' + filename
+    return jsonify({'max_duration': max_duration, 'file_url': file_url})
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run the Flask app')
