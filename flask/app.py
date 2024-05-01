@@ -84,11 +84,17 @@ def upload():
     audio_file = request.files['file']
     upload_dir = os.path.join(script_dir, 'uploads')
     os.makedirs(upload_dir, exist_ok=True)  # Ensure the upload directory exists
-    filename = os.path.join(upload_dir, secure_filename(audio_file.filename))
-    audio_file.save(filename)
-    max_duration = get_audio_duration(filename)
+    filename = secure_filename(audio_file.filename)
+    full_path = os.path.join(upload_dir, filename)
+    audio_file.save(full_path)
+    max_duration = get_audio_duration(full_path)
     file_url = request.url_root + 'uploads/' + filename
+    print(file_url)
     return jsonify({'max_duration': max_duration, 'file_url': file_url})
+
+@app.route('/uploads/<filename>')
+def serve_upload(filename):
+    return send_from_directory(os.path.join(script_dir, '..', 'uploads'), filename)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run the Flask app')

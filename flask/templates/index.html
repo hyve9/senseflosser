@@ -38,7 +38,7 @@
 
 <div id="original_player">Original file</div>
 <br>
-<div id="player"></div>
+<div id="processed_player">Processed file</div>
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <script>
@@ -51,7 +51,7 @@ $(document).ready(function(){
             type: 'POST',
             data: formData,
             success: function(data){
-                $("#player").html('<audio controls><source src="' + data.output_file_url + '" type="audio/wav">Your browser does not support the audio element.</audio>');
+                $("#processed_player").html('<audio controls><source src="' + data.output_file_url + '" type="audio/wav">Your browser does not support the audio element.</audio>');
             },
             cache: false,
             contentType: false,
@@ -70,6 +70,7 @@ function updateDurationValue(val) {
     document.getElementById('typedDurationValue').textContent = val;
 }
 function syncSlider(val) {
+    console.log('Inside syncSlider, val:', val);
     var slider = document.getElementById('duration');
     slider.value = val;
     updateValue(val);  // Update the displayed slider value
@@ -85,17 +86,35 @@ document.getElementById('file').addEventListener('change', function() {
     })
     .then(response => response.json())
     .then(data => {
+        console.log(data);
+        console.log('Setting max duration...');
         document.getElementById('duration').max = data.max_duration;
         document.getElementById('typedDuration').max = data.max_duration;
         document.getElementById('max_duration').textContent = data.max_duration;
-        syncSlider(document.getElementById('typedDuration').value);
-        // Save the URL of the uploaded file
-        window.originalFileUrl = data.file_url;
-        // Update the original audio player
-        $("#original_player").html('<audio controls><source src="' + window.originalFileUrl + '" type="audio/wav">Your browser does not support the audio element.</audio>');
+        var typedDurationValue = document.getElementById('typedDuration').value;
+        console.log('typedDuration value:', typedDurationValue);
+        console.log('Syncing slider...');
+        syncSlider(typedDurationValue);
+        try {
+            console.log('Saving original file URL...');
+            window.originalFileUrl = data.file_url;
+            console.log('Updating original player...');
+            document.getElementById('original_player').innerHTML = '<audio controls><source src="' + window.originalFileUrl + '" type="audio/wav">Your browser does not support the audio element.</audio>';
+            console.log('Original file URL:', window.originalFileUrl);
+            console.log('Original player HTML:', document.getElementById('original_player').innerHTML);
+        } catch (e) {
+            console.error('Error:', e);
+        }
     });
 });
 
+function updateValue(val) {
+    // Get the element you want to update
+    var element = document.getElementById('durationValue');
+
+    // Update the element's text content with the passed value
+    element.textContent = val;
+}
 document.getElementById('magnitude').addEventListener('input', function() {
     updateMagnitudeValue(this.value);
 });
