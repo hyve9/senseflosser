@@ -1,93 +1,74 @@
-from flask import Flask, request, render_template, jsonify, send_from_directory, url_for
-from werkzeug.utils import secure_filename
-import os
-import subprocess
+import sys
 import argparse
+from flask import Flask, request, render_template, jsonify, url_for, send_from_directory
+from werkzeug.utils import secure_filename
+from pathlib import Path
 import librosa
 
-def get_audio_duration(audio_file):
-    y, sr = librosa.load(audio_file)
+# Really hacky - let's fix this later
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from senseflosser.utils import run_senseflosser
+
+app = Flask(__name__)
+
+def get_audio_duration(input_file):
+    y, sr = librosa.load(input_file)
     duration = librosa.get_duration(y=y, sr=sr)
     return duration
 
 app = Flask(__name__)
 
-script_dir = os.path.dirname(os.path.realpath(__file__))
-
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        audio_file = request.files['audio']
-        filename = os.path.join(script_dir, 'uploads', secure_filename(audio_file.filename))  # Removed '..'
-        audio_file.save(filename)
+        input_file = request.files['input_file']
+        upload_dir = Path('uploads')
+        upload_dir.mkdir(exist_ok=True)
+        filename = Path(upload_dir, secure_filename(input_file.filename))  
+        input_file.save(filename)
         max_duration = get_audio_duration(filename)
 
         model_name = request.form['model_name']
         magnitude = request.form['magnitude']
-        # titrate = request.form['titrate']
         duration = request.form['duration']
         action = request.form['action']
 
-        model_filename = os.path.join('..', 'models', model_name)
+        # Convert duration and magnitude to int and float
+        duration = int(duration)
+        magnitude = [float(magnitude)]
 
-        # result = subprocess.run([
-        #     'python', 
-        #     '../run_senseflosser.py', 
-        #     '--model', model_filename, 
-        #     '--magnitude', magnitude,
-        #     #'--titrate', # not sure yet
-        #     '--duration', duration,
-        #     '--action', action,
-        #     '--input', filename,
-        #     '--output-dir', '../output'],
-        #     capture_output=True,
-        #     text=True)
-        result = subprocess.run([
-            'python', 
-            os.path.join(script_dir, '..', 'run_senseflosser.py'),  # Use an absolute path
-            '--model', model_filename, 
-            '--magnitude', magnitude,
-            #'--titrate', # not sure yet
-            '--duration', duration,
-            '--action', action,
-            '--input', filename,
-            '--output-dir', os.path.join(script_dir, '..', 'output')],  # Use an absolute path
-            capture_output=True,
-            text=True)
+        model_file = Path('../models', model_name)
+        output_dir = Path('output')
+        output_dir.mkdir(exist_ok=True)
 
+        # Call the function directly with parameters
+        output_files = run_senseflosser(model_file, magnitude, action, filename, output_dir, duration, titrate=False, save_model=False)
 
-        print('return code:', result.returncode)
-        print('stdout:', result.stdout)
-        print('stderr:', result.stderr)
+        # Generate URLs for the output files
+        output_file_urls = [url_for('serve_output', filename=file.name) for file in output_files]
         
-        base_filename = os.path.basename(filename)
-        output_filename = os.path.join(script_dir, '..', 'output', base_filename.rsplit('.', 1)[0] + '_normal.wav')
-        output_file_url_path = os.path.relpath(output_filename, start=script_dir)
-        # output_file_url_path = output_file_rel_path.replace('\\', '/') # for Windows but idk if it's necessary
-        print('output_file_rel_path:', output_file_url_path)
-        output_file_url = request.url_root + output_file_url_path
-        print('output_file_url:', output_file_url)
-        return jsonify({'result': result.stdout, 'output_file_url': output_file_url})
+        return jsonify({'output_file_urls': output_file_urls})
     else:
-        model_dir = os.path.join(script_dir, '..', 'models')
-        model_files = [f for f in os.listdir(model_dir) if os.path.isfile(os.path.join(model_dir, f))]
+        model_dir = Path('../models')
+        model_files = [f for f in model_dir.iterdir() if f.is_file()]
         max_duration = 30  # Default max duration
         return render_template('index.html', max_duration=max_duration, model_files=model_files)
 
 
 @app.route('/output/<filename>')
 def serve_output(filename):
-    return send_from_directory(os.path.join(script_dir, '..', 'output'), filename)
+    print('Serving file from:', Path('output', filename))
+    return send_from_directory(Path('output'), filename)
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    audio_file = request.files['file']
-    upload_dir = os.path.join(script_dir, 'uploads')
-    os.makedirs(upload_dir, exist_ok=True)  # Ensure the upload directory exists
-    filename = secure_filename(audio_file.filename)
-    full_path = os.path.join(upload_dir, filename)
+    input_file = request.files['file']
+    upload_dir = Path('uploads')
+    upload_dir.mkdir(exist_ok=True)  # Ensure the upload directory exists
+    filename = secure_filename(input_file.filename)
+    full_path = upload_dir / filename
     print("Saving file to", full_path)
-    audio_file.save(full_path)
+    input_file.save(full_path)
     max_duration = get_audio_duration(full_path)
     file_url = url_for('serve_upload', filename=filename, _external=True)
     print(file_url)
@@ -95,9 +76,8 @@ def upload():
 
 @app.route('/uploads/<filename>')
 def serve_upload(filename):
-    print(script_dir)
-    print("Serving file from:", os.path.join(script_dir, 'uploads', filename))
-    return send_from_directory(os.path.join(script_dir, 'uploads'), filename)
+    print("Serving file from:", Path('uploads', filename))
+    return send_from_directory(Path('uploads'), filename)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run the Flask app')

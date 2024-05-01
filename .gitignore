@@ -2,5 +2,11 @@ __pycache__
 data/
 .vscode/
 *.log
+
+# flask artifacts
+flask/output/
+flask/uploads/
+
+# misc files
 requirements.txt
 pre_flask_senseflosser.yml

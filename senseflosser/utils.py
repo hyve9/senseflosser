@@ -6,11 +6,14 @@ import logging
 import librosa
 from keras.layers import Dropout, Conv2D, Conv2DTranspose
 from keras.models import Model, Sequential
+from scipy.io import wavfile
+from pathlib import Path
+from autoencoder.model import SAMPLE_RATE, HOP_LEN, WINDOW_LEN, WTYPE, preprocess_input
 
 class DropoutAtInference(Dropout):
     # Adding dropout without training does not work
     # See: https://keras.io/api/layers/regularization_layers/dropout/ for details
-    def call(self, inputs, training=None):
+    def call(self, inputs):
         # Hardcode training to True
         return super().call(inputs, training=True)
 
@@ -64,29 +67,6 @@ def fog(model, magnitude):
             model.layers[i].set_weights(new_weights)
     return model
 
-def lapse_old(model, magnitude):
-    logging.debug('Entering ' + sys._getframe().f_code.co_name)
-    new_model_layers = []
-    input_layer = model.input
-    x = input_layer
-    
-    for i, layer in enumerate(model.layers):
-        # Clone the layer from the original model configuration
-        cloned_layer = layer.__class__.from_config(layer.get_config())
-        x = cloned_layer(x)
-        cloned_layer.set_weights(layer.get_weights())
-        new_model_layers.append(cloned_layer)
-        
-        if isinstance(layer, Conv2D) or isinstance(layer, Conv2DTranspose):
-            dropout_layer = Dropout(magnitude)
-            x = dropout_layer(x)
-            new_model_layers.append(dropout_layer)
-                
-    # Create new model based on the functional API
-    new_model = Model(inputs=input_layer, outputs=x)
-    new_model.compile(optimizer=model.optimizer, loss=model.loss, metrics=model.metrics)
-    return new_model
-
 def lapse(model, magnitude):
     logging.debug('Entering ' + sys._getframe().f_code.co_name)
     new_model = Sequential()
@@ -112,17 +92,64 @@ def floss_model(model, magnitude=0.1, action='fog'):
         logging.warn('Invalid action; model will remain unmodified')
     return model
 
+def run_senseflosser(model_file, magnitude, action, input_file, output_dir, duration, titrate, save_model):
+    logging.debug('Entering ' + sys._getframe().f_code.co_name)
+    sample_rate = SAMPLE_RATE
+    window_len = WINDOW_LEN
+    hop_len = HOP_LEN
+    wtype = WTYPE
+    orig_model = keras.models.load_model(model_file)
 
-            
-# more ideas
+    # Obtain normal output
+    y, sr = librosa.load(input_file, mono=True)
 
-# something that tries to mimic how vinyl or tape might deteriorate
-# slowed/reverbed (but how to translate that into latent space?)
+    # Model params
+    if duration is None:
+        try:
+            # This is ugly :(
+            duration = int(model_file.stem.split('s')[0])
+        except ValueError: # If model file name doesn't have a duration in it
+            logging.error('Duration must be specified if model file name does not contain duration')
+            sys.exit(1)
 
-# FWIW, I've been told that LTSM layers are quite sensitive to even small changes
-# so the above function might be overkill
-# We may want to start really small, like one or two values at a time
+    sequence_length = duration * sample_rate - ((duration * sample_rate) % window_len)
+    freq_bins = window_len // 2 + 1
+    windows = ((sequence_length - window_len) // hop_len) + 1
+    
+    # Preprocess input
+    y_proc = preprocess_input(sequence_length, windows, freq_bins, y, sr)
 
-# Another idea - classify different changes as different types of loss
-# like lapse, fog, etc
-# where one is changing weights, one is adding dropout layers, etc.
+    # Predict
+    S_normal_output = orig_model.predict(y_proc)
+    normal_output = postprocess_output(S_normal_output, window_len, hop_len, wtype)
+
+    # Get flossin'!
+    flossed_outputs = dict()
+    for i, m in enumerate(magnitude):
+        flossed_model = floss_model(orig_model, magnitude[i], action)
+        flossed_output = flossed_model.predict(y_proc)
+        flossed_outputs[magnitude[i]] = postprocess_output(flossed_output, window_len, hop_len, wtype)
+
+    # Write waveforms
+    output_files = []
+    output_dir.mkdir(exist_ok=True)
+    output_file_prefix = input_file.stem
+    normal_file = output_dir.joinpath(f'{output_file_prefix}_normal.wav')
+    wavfile.write(normal_file, sample_rate, normal_output)
+    output_files.append(normal_file)
+    for m in flossed_outputs:
+        flossed_file = output_dir.joinpath(f'{output_file_prefix}_{action}_{m}.wav')
+        wavfile.write(flossed_file, sample_rate, flossed_outputs[m])
+        output_files.append(flossed_file)
+
+    # Save flossed model
+    if save_model:
+        if titrate:
+            logging.error('Not saving titrated models; please specify a single magnitude.')
+            sys.exit(0)
+        model_dir = Path('./models')
+        model_dir.mkdir(exist_ok=True)
+        output_model_prefix = model_file.stem
+        flossed_model.save(model_dir.joinpath(f'{output_model_prefix}_{action}_{magnitude[0]}.h5'))
+    
+    return output_files
