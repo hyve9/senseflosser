@@ -1,4 +1,5 @@
 import sys
+import argparse
 from flask import Flask, request, render_template, jsonify, url_for, send_from_directory
 from werkzeug.utils import secure_filename
 from pathlib import Path
@@ -42,4 +43,9 @@ def serve_output(filename):
     return send_from_directory(Path('../output'), filename)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    parser = argparse.ArgumentParser(description='Run the Flask app')
+    parser.add_argument('--port', type=int, default=5000, help='Port number to run the app on') 
+    parser.add_argument('--host', type=str, default='127.0.0.1', help='Host address to run the app on')
+    args = parser.parse_args()
+
+    app.run(host=args.host, port=args.port, debug=True)

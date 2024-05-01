@@ -5,21 +5,40 @@
 <h2>Upload and Process WAV File</h2>
 
 <form action="/" method="post" enctype="multipart/form-data">
-    Select audio file:
-    <input type="file" name="audio" accept=".wav"><br>
+    Select audio file:<br>
+    <input type="input_file" id="input_file" name="audio" accept=".wav"><br>
+    
     Select model:
     <select name="model_name">
     {% for model_file in model_files %}
         <option value="{{ model_file }}">{{ model_file }}</option>
     {% endfor %}
     </select><br>
+    
+    Select action:
+    <select name="action">
+        <option value="fog">Fog</option>
+        <option value="lapse">Lapse</option>
+    </select><br>
+    
     Set degredation magnitude:
-    <input type="range" name="magnitude" min="0" max="1" step="0.01" value="0.5" oninput="updateValue(this.value)">
+    <br>
+    <input type="range" id="magnitude" name="magnitude" min="0" max="1" step="0.01" value="0.5" oninput="updateMagnitudeValue(this.value)">
     <span id="value">0.5</span><br>
+    
+    Set duration of audio to process (in seconds):
+    <br>
+    Max duration: <span id="max_duration">{{ max_duration }}</span> seconds<br>
+    <input type="range" id="duration" name="duration" min="1" max="{{ max_duration }}" value="10" oninput="updateDurationValue(this.value)">
+    <span id="durationValue">10</span><br>  
+    <input type="number" id="typedDuration" name="typedDuration" min="1" max="{{ max_duration }}" value="10" onchange="syncSlider(this.value)">
+    <span id="typedDurationValue"></span><br>
     <button type="submit">flosser ur sense</button>
 </form>
 
-<div id="player"></div>
+<div id="original_player">Original file</div>
+<br>
+<div id="processed_player">Processed file</div>
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <script>
@@ -32,7 +51,7 @@ $(document).ready(function(){
             type: 'POST',
             data: formData,
             success: function(data){
-                $("#player").html('<audio controls><source src="' + data.output_file_url + '" type="audio/wav">Your browser does not support the audio element.</audio>');
+                $("#processed_player").html('<audio controls><source src="' + data.output_file_url + '" type="audio/wav">Your browser does not support the audio element.</audio>');
             },
             cache: false,
             contentType: false,
@@ -41,10 +60,72 @@ $(document).ready(function(){
     });
 });
 
-function updateValue(val) {
+function updateMagnitudeValue(val) {
     document.getElementById('value').textContent = val;
 }
-</script>
 
+
+function updateDurationValue(val) {
+    document.getElementById('durationValue').textContent = val;
+    document.getElementById('typedDurationValue').textContent = val;
+}
+function syncSlider(val) {
+    console.log('Inside syncSlider, val:', val);
+    var slider = document.getElementById('duration');
+    slider.value = val;
+    updateValue(val);  // Update the displayed slider value
+}
+
+document.getElementById('file').addEventListener('change', function() {
+    var file = this.files[0];
+    var formData = new FormData();
+    formData.append('file', file);
+    fetch('/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log(data);
+        console.log('Setting max duration...');
+        document.getElementById('duration').max = data.max_duration;
+        document.getElementById('typedDuration').max = data.max_duration;
+        document.getElementById('max_duration').textContent = data.max_duration;
+        var typedDurationValue = document.getElementById('typedDuration').value;
+        console.log('typedDuration value:', typedDurationValue);
+        console.log('Syncing slider...');
+        syncSlider(typedDurationValue);
+        try {
+            console.log('Saving original file URL...');
+            window.originalFileUrl = data.file_url;
+            console.log('Updating original player...');
+            document.getElementById('original_player').innerHTML = '<audio controls><source src="' + window.originalFileUrl + '" type="audio/wav">Your browser does not support the audio element.</audio>';
+            console.log('Original file URL:', window.originalFileUrl);
+            console.log('Original player HTML:', document.getElementById('original_player').innerHTML);
+        } catch (e) {
+            console.error('Error:', e);
+        }
+    });
+});
+
+function updateValue(val) {
+    // Get the element you want to update
+    var element = document.getElementById('durationValue');
+
+    // Update the element's text content with the passed value
+    element.textContent = val;
+}
+document.getElementById('magnitude').addEventListener('input', function() {
+    updateMagnitudeValue(this.value);
+});
+
+document.getElementById('duration').addEventListener('input', function() {
+    updateDurationValue(this.value);
+});
+
+document.getElementById('typedDuration').addEventListener('input', function() {
+    updateDurationValue(this.value);
+});
+</script>
 </body>
 </html>
