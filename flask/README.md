@@ -1,6 +1,7 @@
 # Flask Audio Processing Application
 
 This is a Flask application that allows users to easily demo senseflosser without using CLI after downloading the repo and installing dependencies.
+
 ## Features
 
 - Upload audio files
@@ -13,12 +14,14 @@ This is a Flask application that allows users to easily demo senseflosser withou
 
 ## Usage
 
-1. You can start the flask app in a couple of ways. Assuming you are in the base directory of the repo on your computer:
+You can start the flask app in a couple of ways. Assuming you are in the base directory of the repo on your computer:
 
-    `cd flask`
+```
+cd flask
+flask run
+```
 
-    Then `python app.py` or `flask run`
-2. Open a web browser and navigate to `http://localhost:5000` or `http://127.0.0.1:5000`.
+Then, open a web browser and navigate to `http://localhost:5000` or `http://127.0.0.1:5000`.
 
 Notes: 
 * Model selection is based on what model files (`.h5`) are in `senseflosser/models`.
