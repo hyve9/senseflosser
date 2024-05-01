@@ -89,6 +89,11 @@ Based on experimentation, good values for magnitude are between 0.02 and 0.5. Va
 
 If you want to save your degraded model, add the `--save-model` option.
 
+## Web Frontend
+
+You can run this tool as a web application for demonstration purposes. 
+See [flask](./flask) for more information.
+
 ## Acknowledgments
 
 This project was built as a group project for the Spring '24 Deep Learning for Media class at NYU, and we had a lot of help from both faculty and colleagues in that class. Thanks, guys! 
