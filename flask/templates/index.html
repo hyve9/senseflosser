@@ -2,11 +2,11 @@
 <html>
 <body>
 
-<h2>Upload and Process WAV File</h2>
+<h2>SenseFlosser</h2>
 
 <form action="/" method="post" enctype="multipart/form-data">
     Select audio file:<br>
-    <input type="input_file" id="input_file" name="audio" accept=".wav"><br>
+    <input type="file" id="file" name="input_file" accept=".wav"><br>
     
     Select model:
     <select name="model_name">
@@ -29,9 +29,9 @@
     Set duration of audio to process (in seconds):
     <br>
     Max duration: <span id="max_duration">{{ max_duration }}</span> seconds<br>
-    <input type="range" id="duration" name="duration" min="1" max="{{ max_duration }}" value="10" oninput="updateDurationValue(this.value)">
-    <span id="durationValue">10</span><br>  
-    <input type="number" id="typedDuration" name="typedDuration" min="1" max="{{ max_duration }}" value="10" onchange="syncSlider(this.value)">
+    <input type="range" id="duration" name="duration" min="1" max="{{ max_duration }}" value="15" oninput="updateDurationValue(this.value)">
+    <span id="durationValue">15</span><br>  
+    <input type="number" id="typedDuration" name="typedDuration" min="1" max="{{ max_duration }}" value="15" onchange="syncSlider(this.value)">
     <span id="typedDurationValue"></span><br>
     <button type="submit">flosser ur sense</button>
 </form>
@@ -51,7 +51,11 @@ $(document).ready(function(){
             type: 'POST',
             data: formData,
             success: function(data){
-                $("#processed_player").html('<audio controls><source src="' + data.output_file_url + '" type="audio/wav">Your browser does not support the audio element.</audio>');
+                $("#processed_player").empty();  // Clear previous entries
+                data.output_file_urls.forEach(function(url) {
+                    var audioHtml = '<audio controls><source src="' + url + '" type="audio/wav">Your browser does not support the audio element.</audio>';
+                    $("#processed_player").append(audioHtml);
+                });
             },
             cache: false,
             contentType: false,
