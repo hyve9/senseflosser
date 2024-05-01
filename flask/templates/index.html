@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>Upload and Process WAV File</h2>
+
+<form action="/" method="post" enctype="multipart/form-data">
+    Select audio file:<br>
+    <input type="file" id="file" name="audio" accept=".wav"><br>
+    
+    Select model:
+    <select name="model_name">
+    {% for model_file in model_files %}
+        <option value="{{ model_file }}">{{ model_file }}</option>
+    {% endfor %}
+    </select><br>
+    
+    Select action:
+    <select name="action">
+        <option value="fog">Fog</option>
+        <option value="lapse">Lapse</option>
+    </select><br>
+    
+    Set degredation magnitude:
+    <br>
+    <input type="range" name="magnitude" min="0" max="1" step="0.01" value="0.5" oninput="updateValue(this.value)">
+    <span id="value">0.5</span><br>
+    
+    Set duration of audio to process (in seconds):
+    <br>
+    <input type="range" id="duration" name="duration" min="1" max="{{ max_duration }}" value="10" oninput="updateDurationValue(this.value)">
+    <span id="durationValue">10</span><br>  
+    Max duration: <span id="max_duration">{{ max_duration }}</span> seconds<br>
+    <input type="number" id="typedDuration" name="typedDuration" min="1" max="{{ max_duration }}" value="10" onchange="syncSlider(this.value)">
+    <span id="typedDurationValue"></span><br>
+    <button type="submit">flosser ur sense</button>
+</form>
+
+<div id="player"></div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script>
+$(document).ready(function(){
+    $("form").on("submit", function(event){
+        event.preventDefault();
+        var formData = new FormData(this);
+        $.ajax({
+            url: '/',
+            type: 'POST',
+            data: formData,
+            success: function(data){
+                $("#player").html('<audio controls><source src="' + data.output_file_url + '" type="audio/wav">Your browser does not support the audio element.</audio>');
+            },
+            cache: false,
+            contentType: false,
+            processData: false
+        });
+    });
+});
+
+function updateValue(val) {
+    document.getElementById('durationValue').textContent = val;
+    document.getElementById('typedDurationValue').textContent = val;
+}
+
+function syncSlider(val) {
+    var slider = document.getElementById('duration');
+    slider.value = val;
+    updateValue(val);  // Update the displayed slider value
+}
+
+document.getElementById('file').addEventListener('change', function() {
+    var file = this.files[0];
+    var formData = new FormData();
+    formData.append('file', file);
+    fetch('/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('duration').max = data.max_duration;
+        document.getElementById('typedDuration').max = data.max_duration;
+        document.getElementById('max_duration').textContent = data.max_duration;
+        syncSlider(document.getElementById('typedDuration').value);
+    });
+});
+
+document.getElementById('duration').addEventListener('input', function() {
+    syncSlider(this.value);
+});
+
+document.getElementById('typedDuration').addEventListener('input', function() {
+    syncSlider(this.value);
+});
+</script>
+</body>
+</html>
