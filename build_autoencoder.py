@@ -1,5 +1,4 @@
 import sys
-import os
 import argparse
 import logging
 import tensorflow as tf
@@ -78,7 +77,7 @@ if __name__ == '__main__':
     if ckpt_folder.exists():
         latest = tf.train.latest_checkpoint(ckpt_folder)
         autoencoder.load_weights(latest)
-    os.makedirs(ckpt_folder, exist_ok=True)
+    ckpt_folder.mkdir(exist_ok=True)
     ckpt_name = f'b{BATCH_SIZE}_e{EPOCHS}_d{duration}s_audio_autoencoder_best.ckpt'
     early_stop = EarlyStopping(
         monitor='val_loss', 

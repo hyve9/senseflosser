@@ -1,17 +1,8 @@
 import sys
-import os
 import argparse
 import logging
-import librosa
-from scipy.io import wavfile
 from pathlib import Path
-from tensorflow import keras
-from senseflosser.utils import floss_model, postprocess_output
-from autoencoder.model import (preprocess_input,
-                                 SAMPLE_RATE,
-                                 HOP_LEN,
-                                 WINDOW_LEN,
-                                 WTYPE)
+from senseflosser.utils import run_senseflosser
 
 if __name__ == '__main__':
 
@@ -53,50 +44,16 @@ if __name__ == '__main__':
         sys.exit(1)
     input_file = Path(args.input)
     model_file = Path(args.model)
-    orig_model = keras.models.load_model(model_file)
-
-    # Obtain normal output
-    y, sr = librosa.load(input_file, mono=True)
-
-    # Model params
-    if duration is None:
-        try:
-            duration = int(model_file.stem.split('s')[0])
-        except ValueError: # If model file name doesn't have a duration in it
-            logging.error('Duration must be specified if model file name does not contain duration')
-            sys.exit(1)
-    sequence_length = duration * SAMPLE_RATE - ((duration * SAMPLE_RATE) % WINDOW_LEN)
-    freq_bins = WINDOW_LEN // 2 + 1
-    windows = ((sequence_length - WINDOW_LEN) // HOP_LEN) + 1
-    
-    # Preprocess input
-    y_proc = preprocess_input(sequence_length, windows, freq_bins, y, sr)
-
-    # Predict
-    S_normal_output = orig_model.predict(y_proc)
-    normal_output = postprocess_output(S_normal_output, WINDOW_LEN, HOP_LEN, WTYPE)
-
-    # Get flossin'!
-    flossed_outputs = dict()
-    for i, m in enumerate(magnitude):
-        flossed_model = floss_model(orig_model, magnitude[i], action)
-        flossed_output = flossed_model.predict(y_proc)
-        flossed_outputs[magnitude[i]] = postprocess_output(flossed_output, WINDOW_LEN, HOP_LEN, WTYPE)
-
-    # Write waveforms
     output_dir = Path(args.output_dir)
-    os.makedirs(output_dir, exist_ok=True)
-    output_file_prefix = input_file.stem
-    wavfile.write(output_dir.joinpath(f'{output_file_prefix}_normal.wav'), SAMPLE_RATE, normal_output)
-    for m in flossed_outputs:
-        wavfile.write(output_dir.joinpath(f'{output_file_prefix}_{action}_{m}.wav'), SAMPLE_RATE, flossed_outputs[m])
 
-    # Save flossed model
-    if args.save_model:
-        if args.titrate:
-            logging.error('Not saving titrated models; please specify a single magnitude.')
-            sys.exit(0)
-        model_dir = Path('./models')
-        os.makedirs(model_dir, exist_ok=True)
-        output_model_prefix = model_file.stem
-        flossed_model.save(model_dir.joinpath(f'{output_model_prefix}_{action}_{magnitude[0]}.h5'))
+    run_senseflosser(model_file, 
+                     magnitude, 
+                     action, 
+                     input_file, 
+                     output_dir, 
+                     duration,
+                     args.titrate,
+                     args.save_model)
+
+
+    

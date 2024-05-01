@@ -4,12 +4,6 @@ Takes an autoencoder keras model and adversarially attempts to deteriorate layer
 
 "senseflosser" is a [homophonic translation](https://en.wikipedia.org/wiki/Homophonic_translation) of Sinneslöschen, itself a non-idiomatic translation of "sense deletion", from the [Polybius mythos](https://en.wikipedia.org/wiki/Polybius_(urban_legend)).
 
-### Setup: Create conda environment
-
-```
-conda create -f envs/environment.yml -n senseflosser 
-conda activate senseflosser
-```
 
 # Usage
 
@@ -46,6 +40,13 @@ optional arguments:
 ```
 
 _Note: All tools/programs must be run from the root of this directory._
+
+### Setup: Create conda environment
+
+```
+conda create -f envs/environment.yml -n senseflosser 
+conda activate senseflosser
+```
 
 ## Autoencoder
 
@@ -90,6 +91,6 @@ If you want to save your degraded model, add the `--save-model` option.
 
 ## Acknowledgments
 
-This project was built for the Spring '24 Deep Learning for Media class at NYU. 
+This project was built as a group project for the Spring '24 Deep Learning for Media class at NYU, and we had a lot of help from both faculty and colleagues in that class. Thanks, guys! 
 
 - **FMA Dataset**: The autoencoders included in this repo were trained on (preprocessed) data from the [FMA Dataset](https://github.com/mdeff/fma), and the two shell scripts mentioned above expect a similar directory structure. The FMA dataset is licensed under the MIT License.
