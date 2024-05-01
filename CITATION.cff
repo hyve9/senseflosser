@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+title: Senseflosser
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: A.
+    family-names: Brewer
+    email: afb8252@nyu.edu
+    affiliation: New York University
+  - given-names: M.
+    family-names: Frick
+    email: mf2675@nyu.edu
+    affiliation: New York University
+  - given-names: M.
+    family-names: Falgowski
+    email: mlf435@nyu.edu
+    affiliation: New York University
+repository-code: 'https://github.com/hyve9/senseflosser'
+abstract: >-
+  Add harmonic content to music to help hearing impaired
+  listeners hear music better.
+keywords:
+  - machine learning
+  - music
+license: MIT
+version: 0.0.1
+date-released: '2024-04-30'
