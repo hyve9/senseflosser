@@ -94,6 +94,36 @@ If you want to save your degraded model, add the `--save-model` option.
 You can run this tool as a web application for demonstration purposes. 
 See [flask](./flask) for more information.
 
+## Using as a module
+
+You can include Senseflosser as a module for your work. 
+
+```
+git submodule add git@github.com:hyve9/senseflosser.git
+git submodule update --init
+```
+
+Then in your code:
+
+```
+senseflosser_dir = (Path.cwd() / 'senseflosser/')
+sys.path.append(str(senseflosser_dir))
+from senseflosser.utils import run_senseflosser
+
+<code...>
+
+output_files = run_senseflosser(model_file, 
+                     magnitude, 
+                     action, 
+                     input_file, 
+                     output_dir, 
+                     duration,
+                     titrate,
+                     save_model)
+
+```
+
+
 ## Acknowledgments
 
 This project was built as a group project for the Spring '24 Deep Learning for Media class at NYU, and we had a lot of help from both faculty and colleagues in that class. Thanks, guys! 
