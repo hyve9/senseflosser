@@ -19,8 +19,8 @@ authors:
     affiliation: New York University
 repository-code: 'https://github.com/hyve9/senseflosser'
 abstract: >-
-  Add harmonic content to music to help hearing impaired
-  listeners hear music better.
+  Takes an autoencoder keras model and adversarially attempts 
+  to deteriorate layers and neurons.
 keywords:
   - machine learning
   - music
