@@ -1,4 +1,4 @@
-name: /Users/furl/micromamba/envs/sensefloss_mac
+name: sensefloss_mac
 channels:
   - conda-forge
 dependencies:
@@ -191,4 +191,3 @@ dependencies:
       - termcolor==2.4.0
       - typing-extensions==4.5.0
       - wrapt==1.16.0
-prefix: /Users/furl/micromamba/envs/sensefloss_mac
