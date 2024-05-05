@@ -129,3 +129,4 @@ output_files = run_senseflosser(model_file,
 This project was built as a group project for the Spring '24 Deep Learning for Media class at NYU, and we had a lot of help from both faculty and colleagues in that class. Thanks, guys! 
 
 - **FMA Dataset**: The autoencoders included in this repo were trained on (preprocessed) data from the [FMA Dataset](https://github.com/mdeff/fma), and the two shell scripts mentioned above expect a similar directory structure. The FMA dataset is licensed under the MIT License.
+- **Lightning AI**: The Lightning Studio compute resource for this project was provided by [Lightning AI](https://lightning.ai/). 
